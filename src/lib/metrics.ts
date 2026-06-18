@@ -48,11 +48,19 @@ export function parseVenda(raw: VendaRaw): Venda {
 const FONTE_MAP: Record<string, string> = {
   meta_ads: 'Meta Ads', google_ads: 'Google Ads', google: 'Google Ads',
   instagram_bio_sp: 'Instagram', instagram: 'Instagram',
-  youtube: 'YouTube', tiktok: 'TikTok', manychat: 'ManyChat',
+  youtube: 'YouTube', youtube_info: 'YouTube Orgânico',
+  tiktok: 'TikTok', manychat: 'ManyChat',
 }
 
 function normalizeFonte(raw: string): string {
-  const cleaned = raw.replace(/\{\{.*?\}\}/g, '').replace(/utm_\w+=\s*/gi, '').trim()
+  // Remove fbp/fbc e outros parâmetros de tracking que chegam no campo errado
+  const cleaned = raw
+    .replace(/\{\{.*?\}\}/g, '')
+    .replace(/utm_\w+=\s*/gi, '')
+    .replace(/fbp:[^\s|]*/gi, '')
+    .replace(/fbc:[^\s|]*/gi, '')
+    .replace(/[|]/g, '')
+    .trim()
   if (!cleaned) return 'Orgânico'
   return FONTE_MAP[cleaned.toLowerCase()] ?? cleaned
 }
@@ -90,9 +98,11 @@ function toArr(m: Record<string, number>) {
 }
 
 export function computeMetrics(leads: Lead[], vendas: Venda[], now = new Date()): Metrics {
-  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  // Ajusta para fuso de Brasília (UTC-3) para que "hoje" comece à meia-noite BRT
+  const nowBRT = new Date(now.getTime() - 3 * 60 * 60 * 1000)
+  const startOfDay = new Date(Date.UTC(nowBRT.getUTCFullYear(), nowBRT.getUTCMonth(), nowBRT.getUTCDate()) + 3 * 60 * 60 * 1000)
   const startOfWeek = new Date(startOfDay.getTime() - 6 * 86400000)
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+  const startOfMonth = new Date(Date.UTC(nowBRT.getUTCFullYear(), nowBRT.getUTCMonth(), 1) + 3 * 60 * 60 * 1000)
 
   // Leads
   const leadsHoje = leads.filter(l => l.dataEntrada >= startOfDay).length
@@ -215,11 +225,13 @@ export function filterVendas(vendas: Venda[], f: FilterState, now = new Date()):
 }
 
 function getCutoff(f: FilterState, now: Date): Date | null {
-  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  // Ajusta para fuso de Brasília (UTC-3)
+  const nowBRT = new Date(now.getTime() - 3 * 60 * 60 * 1000)
+  const startOfDay = new Date(Date.UTC(nowBRT.getUTCFullYear(), nowBRT.getUTCMonth(), nowBRT.getUTCDate()) + 3 * 60 * 60 * 1000)
   if (f.dateRange === 'hoje') return startOfDay
   if (f.dateRange === '7d') return new Date(startOfDay.getTime() - 6 * 86400000)
   if (f.dateRange === '30d') return new Date(startOfDay.getTime() - 29 * 86400000)
-  if (f.dateRange === 'mes') return new Date(now.getFullYear(), now.getMonth(), 1)
-  if (f.dateRange === 'custom' && f.customStart) return new Date(f.customStart)
+  if (f.dateRange === 'mes') return new Date(Date.UTC(nowBRT.getUTCFullYear(), nowBRT.getUTCMonth(), 1) + 3 * 60 * 60 * 1000)
+  if (f.dateRange === 'custom' && f.customStart) return new Date(f.customStart + 'T00:00:00-03:00')
   return null
 }

@@ -39,7 +39,8 @@ function parseDate(raw: string): Date {
   if (parts.length !== 3) return new Date(0)
   const [day, month, year] = parts
   const timeStr = timePart || '00:00:00'
-  return new Date(`${year}-${month}-${day}T${timeStr}`)
+  // Força fuso de Brasília (UTC-3) para evitar que vendas entre 21h-23h59 migrem de dia
+  return new Date(`${year}-${month}-${day}T${timeStr}-03:00`)
 }
 
 function parseLeadRows(rows: unknown[][]): Lead[] {
