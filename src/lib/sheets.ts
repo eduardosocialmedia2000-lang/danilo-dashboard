@@ -116,17 +116,19 @@ function rowsToLeads(rows: { c?: (GvizCell | null)[] }[]): Lead[] {
     }
     const idRaw = getStr(0)
     if (!/^\d{7,10}$/.test(idRaw)) continue
+    // Kommo_Leads: lead_id(0), created_at(1), nome(2), stage_name(3), pipeline_name(4),
+    //              utm_source(5), utm_campaign(6), cidade(7), fechado(8), valor_fechado(9)
     leads.push({
       id: idRaw,
-      nome: getStr(1),
-      pipeline: getStr(2),
+      nome: getStr(2),
+      pipeline: getStr(4),
       etapa: getStr(3),
-      status: getStr(4),
-      cidade: getStr(5),
-      dataEntrada: parseGvizDate(cells[6]),
-      ultimaAtualizacao: parseGvizDate(cells[7]),
-      utmSource: getStr(8),
-      utmCampaign: getStr(9),
+      status: getStr(8),
+      cidade: getStr(7),
+      dataEntrada: parseGvizDate(cells[1]),
+      ultimaAtualizacao: parseGvizDate(cells[1]),
+      utmSource: getStr(5),
+      utmCampaign: getStr(6),
     })
   }
   return leads
