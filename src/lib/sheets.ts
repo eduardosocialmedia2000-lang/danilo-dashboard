@@ -89,10 +89,18 @@ function parseGvizDate(cell: GvizCell | null | undefined): Date {
   if (!cell) return new Date(0)
   // Prefere campo formatado "18/06/2026, 11:05:24"
   if (cell.f) return parseDate(cell.f)
-  // Fallback: formato "Date(2026,5,18,11,5,24)" — mês é 0-indexed
-  if (typeof cell.v === 'string' && cell.v.startsWith('Date(')) {
-    const parts = cell.v.replace('Date(', '').replace(')', '').split(',').map(Number)
-    return new Date(parts[0], parts[1], parts[2], parts[3] || 0, parts[4] || 0, parts[5] || 0)
+  if (typeof cell.v === 'string') {
+    // ISO string: "2026-06-18T17:58:55.000Z" — converte para BRT
+    if (cell.v.match(/^\d{4}-\d{2}-\d{2}T/)) {
+      const utc = new Date(cell.v)
+      // Subtrai 3h para obter BRT (apenas para fins de comparação de dia)
+      return new Date(utc.getTime() - 3 * 60 * 60 * 1000)
+    }
+    // Formato "Date(2026,5,18,11,5,24)" — mês é 0-indexed
+    if (cell.v.startsWith('Date(')) {
+      const parts = cell.v.replace('Date(', '').replace(')', '').split(',').map(Number)
+      return new Date(parts[0], parts[1], parts[2], parts[3] || 0, parts[4] || 0, parts[5] || 0)
+    }
   }
   return new Date(0)
 }
