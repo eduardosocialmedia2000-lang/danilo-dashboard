@@ -145,8 +145,8 @@ async function fetchViaGviz(): Promise<Lead[]> {
     // Para quando receber menos de PAGE linhas
     if (rows.length < PAGE) break
     offset += PAGE
-    // Limite de segurança: 10 páginas = 10.000 leads
-    if (offset >= 10000) break
+    // Limite de segurança: 50 páginas = 50.000 leads
+    if (offset >= 50000) break
   }
 
   return allLeads

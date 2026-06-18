@@ -53,7 +53,6 @@ const FONTE_MAP: Record<string, string> = {
 }
 
 function normalizeFonte(raw: string): string {
-  // Remove fbp/fbc e outros parâmetros de tracking que chegam no campo errado
   const cleaned = raw
     .replace(/\{\{.*?\}\}/g, '')
     .replace(/utm_\w+=\s*/gi, '')
@@ -62,7 +61,8 @@ function normalizeFonte(raw: string): string {
     .replace(/[|]/g, '')
     .trim()
   if (!cleaned) return 'Orgânico'
-  return FONTE_MAP[cleaned.toLowerCase()] ?? cleaned
+  const key = cleaned.toLowerCase()
+  return FONTE_MAP[key] ?? FONTE_MAP[key.replace(/-/g, '_')] ?? cleaned
 }
 
 const ETAPA_VALIDA = /^[A-Za-zÀ-ú\s\-_/]+$/
