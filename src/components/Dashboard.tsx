@@ -77,7 +77,7 @@ function topWithOthers(arr: { name: string; value: number }[], n = 7) {
   return [...arr.slice(0, n), { name: 'Outros', value: outros }]
 }
 
-const DEFAULT_FILTER: FilterState = { dateRange: 'tudo', pipeline: 'todos', customStart: '', customEnd: '' }
+const DEFAULT_FILTER: FilterState = { dateRange: 'mes', pipeline: 'todos', customStart: '', customEnd: '' }
 
 export default function Dashboard() {
   const [allLeads, setAllLeads] = useState<Lead[]>([])
