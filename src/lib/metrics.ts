@@ -229,7 +229,7 @@ function getCutoff(f: FilterState, now: Date): Date | null {
   const nowBRT = new Date(now.getTime() - 3 * 60 * 60 * 1000)
   const startOfDay = new Date(Date.UTC(nowBRT.getUTCFullYear(), nowBRT.getUTCMonth(), nowBRT.getUTCDate()) + 3 * 60 * 60 * 1000)
   if (f.dateRange === 'hoje') return startOfDay
-  if (f.dateRange === '7d') return new Date(startOfDay.getTime() - 6 * 86400000)
+  if (f.dateRange === '7d') return new Date(startOfDay.getTime() - 7 * 86400000)
   if (f.dateRange === '30d') return new Date(startOfDay.getTime() - 29 * 86400000)
   if (f.dateRange === 'mes') return new Date(Date.UTC(nowBRT.getUTCFullYear(), nowBRT.getUTCMonth(), 1) + 3 * 60 * 60 * 1000)
   if (f.dateRange === 'custom' && f.customStart) return new Date(f.customStart + 'T00:00:00-03:00')

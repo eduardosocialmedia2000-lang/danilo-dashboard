@@ -131,20 +131,25 @@ export default function Dashboard() {
   const metaFiltered = useMemo(() => {
     if (!allMetaAds.length) return allMetaAds
     const now = new Date()
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+    // Ajuste BRT para comparar corretamente com datas ISO "yyyy-mm-dd" (interpretadas como UTC)
+    const nowBRT = new Date(now.getTime() - 3 * 60 * 60 * 1000)
+    const todayUTC = `${nowBRT.getUTCFullYear()}-${String(nowBRT.getUTCMonth() + 1).padStart(2, '0')}-${String(nowBRT.getUTCDate()).padStart(2, '0')}`
+    const startOfMonthUTC = `${nowBRT.getUTCFullYear()}-${String(nowBRT.getUTCMonth() + 1).padStart(2, '0')}-01`
     return allMetaAds.filter(r => {
       if (!r.data) return true
-      const d = new Date(r.data)
-      if (filter.dateRange === 'hoje') return d >= startOfDay
-      if (filter.dateRange === '7d') return d >= new Date(now.getTime() - 7 * 864e5)
-      if (filter.dateRange === '30d') return d >= new Date(now.getTime() - 30 * 864e5)
-      if (filter.dateRange === 'mes') return d >= startOfMonth
+      if (filter.dateRange === 'hoje') return r.data === todayUTC
+      if (filter.dateRange === '7d') {
+        const cutoff = new Date(now.getTime() - 7 * 864e5).toISOString().split('T')[0]
+        return r.data >= cutoff
+      }
+      if (filter.dateRange === '30d') {
+        const cutoff = new Date(now.getTime() - 30 * 864e5).toISOString().split('T')[0]
+        return r.data >= cutoff
+      }
+      if (filter.dateRange === 'mes') return r.data >= startOfMonthUTC
       if (filter.dateRange === 'custom') {
-        const s = filter.customStart ? new Date(filter.customStart) : null
-        const e = filter.customEnd ? new Date(filter.customEnd + 'T23:59:59') : null
-        if (s && d < s) return false
-        if (e && d > e) return false
+        if (filter.customStart && r.data < filter.customStart) return false
+        if (filter.customEnd && r.data > filter.customEnd) return false
         return true
       }
       return true
@@ -510,11 +515,6 @@ export default function Dashboard() {
 
         <p className="text-center text-xs text-gray-400 pb-2">
           Sincronizado a cada 5 min · Sem custo de API · Dr. Danilo Matsunaga © 2026
-          {allLeads.length < allLeads.length + 1 && (
-            <span className="ml-2 text-amber-500">
-              · Exibindo {allLeads.length} leads (aba &quot;Leads Consulta&quot; exporta os mais recentes)
-            </span>
-          )}
         </p>
       </main>
     </div>

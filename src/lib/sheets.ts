@@ -17,18 +17,6 @@ export interface Lead {
   utmCampaign: string
 }
 
-export interface DashboardData {
-  leads: Lead[]
-  totalLeads: number
-  leadsHoje: number
-  leadsSemana: number
-  leadsMes: number
-  porPipeline: Record<string, number>
-  porEtapa: Record<string, number>
-  porFonte: Record<string, number>
-  porCidade: Record<string, number>
-  porDia: { data: string; total: number }[]
-}
 
 function parseDate(raw: string): Date {
   if (!raw) return new Date(0)
@@ -299,73 +287,3 @@ export async function fetchMetaAds(): Promise<MetaAd[]> {
   }
 }
 
-export function buildDashboardData(leads: Lead[]): DashboardData {
-  const now = new Date()
-  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const startOfWeek = new Date(startOfDay)
-  startOfWeek.setDate(startOfDay.getDate() - startOfDay.getDay())
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-
-  const leadsHoje = leads.filter(l => l.dataEntrada >= startOfDay).length
-  const leadsSemana = leads.filter(l => l.dataEntrada >= startOfWeek).length
-  const leadsMes = leads.filter(l => l.dataEntrada >= startOfMonth).length
-
-  const porPipeline: Record<string, number> = {}
-  const porEtapa: Record<string, number> = {}
-  const porFonte: Record<string, number> = {}
-  const porCidade: Record<string, number> = {}
-  const porDiaMap: Record<string, number> = {}
-
-  for (const lead of leads) {
-    const pipeline = lead.pipeline || 'Sem pipeline'
-    porPipeline[pipeline] = (porPipeline[pipeline] || 0) + 1
-
-    const etapa = lead.etapa || 'Sem etapa'
-    porEtapa[etapa] = (porEtapa[etapa] || 0) + 1
-
-    let fonteRaw = lead.utmSource
-      .replace(/\{\{.*?\}\}/g, '') // remove {{placeholders}} do Meta
-      .replace(/utm_\w+=\s*/gi, '') // remove chaves UTM soltas
-      .trim()
-    // Normaliza nomes comuns
-    const fonteMap: Record<string, string> = {
-      meta_ads: 'Meta Ads',
-      google_ads: 'Google Ads',
-      google: 'Google Ads',
-      instagram_bio_sp: 'Instagram',
-      instagram: 'Instagram',
-      youtube: 'YouTube',
-      tiktok: 'TikTok',
-    }
-    const fonte = fonteRaw ? (fonteMap[fonteRaw.toLowerCase()] ?? fonteRaw) : 'Orgânico'
-    porFonte[fonte] = (porFonte[fonte] || 0) + 1
-
-    if (lead.cidade) porCidade[lead.cidade] = (porCidade[lead.cidade] || 0) + 1
-
-    const dataKey = lead.dataEntrada.toISOString().split('T')[0]
-    if (dataKey && lead.dataEntrada.getFullYear() > 2000) {
-      porDiaMap[dataKey] = (porDiaMap[dataKey] || 0) + 1
-    }
-  }
-
-  const porDia = Object.entries(porDiaMap)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .slice(-30)
-    .map(([data, total]) => ({
-      data: data.split('-').reverse().join('/').slice(0, 5),
-      total,
-    }))
-
-  return {
-    leads,
-    totalLeads: leads.length,
-    leadsHoje,
-    leadsSemana,
-    leadsMes,
-    porPipeline,
-    porEtapa,
-    porFonte,
-    porCidade,
-    porDia,
-  }
-}
