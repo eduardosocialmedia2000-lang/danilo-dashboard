@@ -14,6 +14,7 @@ import {
   type LeadRaw, type VendaRaw, type Lead, type Venda, type FilterState,
   parseLead, parseVenda, computeMetrics, filterLeads, filterVendas,
 } from '@/lib/metrics'
+import type { MetaAd } from '@/lib/sheets'
 
 const DATE_OPTIONS = [
   { label: 'Hoje', value: 'hoje' },
@@ -80,6 +81,7 @@ const DEFAULT_FILTER: FilterState = { dateRange: 'tudo', pipeline: 'todos', cust
 export default function Dashboard() {
   const [allLeads, setAllLeads] = useState<Lead[]>([])
   const [allVendas, setAllVendas] = useState<Venda[]>([])
+  const [allMetaAds, setAllMetaAds] = useState<MetaAd[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
@@ -96,6 +98,7 @@ export default function Dashboard() {
       const json = await res.json()
       setAllLeads((json.leads as LeadRaw[]).map(parseLead))
       setAllVendas((json.vendas as VendaRaw[]).map(parseVenda))
+      setAllMetaAds((json.metaAds as MetaAd[]) ?? [])
       setLastUpdate(new Date())
       setRefreshCount(c => c + 1)
     } catch {
@@ -122,6 +125,68 @@ export default function Dashboard() {
     () => computeMetrics(allLeads, allVendas).pipelines.map(p => ({ label: p, value: p })),
     [allLeads, allVendas]
   )
+
+  // Meta Ads metrics — filtrados pelo mesmo período do filtro de leads/vendas
+  const metaFiltered = useMemo(() => {
+    if (!allMetaAds.length) return allMetaAds
+    const now = new Date()
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+    return allMetaAds.filter(r => {
+      if (!r.data) return true
+      const d = new Date(r.data)
+      if (filter.dateRange === 'hoje') return d >= startOfDay
+      if (filter.dateRange === '7d') return d >= new Date(now.getTime() - 7 * 864e5)
+      if (filter.dateRange === '30d') return d >= new Date(now.getTime() - 30 * 864e5)
+      if (filter.dateRange === 'mes') return d >= startOfMonth
+      if (filter.dateRange === 'custom') {
+        const s = filter.customStart ? new Date(filter.customStart) : null
+        const e = filter.customEnd ? new Date(filter.customEnd + 'T23:59:59') : null
+        if (s && d < s) return false
+        if (e && d > e) return false
+        return true
+      }
+      return true
+    })
+  }, [allMetaAds, filter])
+
+  const metaKpis = useMemo(() => {
+    const spend = metaFiltered.reduce((s, r) => s + r.spend, 0)
+    const compras = metaFiltered.reduce((s, r) => s + r.compras, 0)
+    const receitaMeta = metaFiltered.reduce((s, r) => s + r.receitaCompras, 0)
+    const cliques = metaFiltered.reduce((s, r) => s + r.cliques, 0)
+    const impressoes = metaFiltered.reduce((s, r) => s + r.impressoes, 0)
+    const roas = spend > 0 ? receitaMeta / spend : 0
+    const cpl = m.totalLeads > 0 ? spend / m.totalLeads : 0
+    const cpa = compras > 0 ? spend / compras : 0
+    const ctr = impressoes > 0 ? (cliques / impressoes) * 100 : 0
+
+    // spend por dia (últimos 30)
+    const spendPorDia: Record<string, number> = {}
+    metaFiltered.forEach(r => {
+      if (r.data) spendPorDia[r.data] = (spendPorDia[r.data] || 0) + r.spend
+    })
+    const spendDia = Object.entries(spendPorDia)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .slice(-30)
+      .map(([data, valor]) => ({ data: data.slice(5).replace('-', '/'), valor }))
+
+    // por campanha
+    const campanhaMap: Record<string, { spend: number; compras: number; receita: number; cliques: number }> = {}
+    metaFiltered.forEach(r => {
+      const k = r.campanha || 'Sem campanha'
+      if (!campanhaMap[k]) campanhaMap[k] = { spend: 0, compras: 0, receita: 0, cliques: 0 }
+      campanhaMap[k].spend += r.spend
+      campanhaMap[k].compras += r.compras
+      campanhaMap[k].receita += r.receitaCompras
+      campanhaMap[k].cliques += r.cliques
+    })
+    const campanhas = Object.entries(campanhaMap)
+      .map(([nome, v]) => ({ nome, ...v, roas: v.spend > 0 ? v.receita / v.spend : 0 }))
+      .sort((a, b) => b.spend - a.spend)
+
+    return { spend, compras, receitaMeta, cliques, impressoes, roas, cpl, cpa, ctr, spendDia, campanhas }
+  }, [metaFiltered, m.totalLeads])
 
   const pipelineTop = topWithOthers(m.porPipeline)
   const etapaTop = m.porEtapa.slice(0, 8)
@@ -231,6 +296,76 @@ export default function Dashboard() {
             <KPICard title="Taxa de Conversão" value={`${m.taxaConversao.toFixed(2)}%`} subtitle={`Ticket médio: ${fmtR(m.ticketMedio)}`} icon={<Percent className="w-4 h-4" />} color="amber" />
           </div>
         </div>
+
+        {/* KPIs Meta Ads */}
+        {allMetaAds.length > 0 && (
+          <div>
+            <p className="text-xs text-gray-400 font-medium uppercase tracking-wider mb-3">Meta Ads</p>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+              <KPICard title="Investimento" value={fmtR(metaKpis.spend)} subtitle="Meta Ads no período" icon={<DollarSign className="w-4 h-4" />} color="green" />
+              <KPICard title="ROAS" value={`${metaKpis.roas.toFixed(2)}x`} subtitle={`Receita: ${fmtR(metaKpis.receitaMeta)}`} icon={<TrendingUp className="w-4 h-4" />} color="blue" />
+              <KPICard title="CPL" value={fmtR(metaKpis.cpl)} subtitle="Custo por lead" icon={<Users className="w-4 h-4" />} color="purple" />
+              <KPICard title="CPA" value={metaKpis.compras > 0 ? fmtR(metaKpis.cpa) : '—'} subtitle={`${metaKpis.compras} compras · CTR ${metaKpis.ctr.toFixed(2)}%`} icon={<Percent className="w-4 h-4" />} color="amber" />
+            </div>
+
+            {/* Gráfico spend por dia */}
+            {metaKpis.spendDia.length > 1 && (
+              <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm mb-4">
+                <h2 className="text-sm font-semibold text-gray-900 mb-1">Investimento por Dia</h2>
+                <p className="text-xs text-gray-400 mb-4">Meta Ads — últimos 30 dias</p>
+                <ResponsiveContainer width="100%" height={180}>
+                  <BarChart data={metaKpis.spendDia} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+                    <XAxis dataKey="data" tick={{ fontSize: 10, fill: '#9ca3af' }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+                    <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} tickLine={false} axisLine={false} width={44} tickFormatter={v => `R$${v}`} />
+                    <Tooltip formatter={(v) => [fmtR(Number(v)), 'Investimento']} contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb', fontSize: 12 }} />
+                    <Bar dataKey="valor" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={28} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+
+            {/* Tabela de campanhas */}
+            {metaKpis.campanhas.length > 0 && (
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="p-5 border-b border-gray-100">
+                  <h2 className="text-sm font-semibold text-gray-900">Campanhas</h2>
+                  <p className="text-xs text-gray-400 mt-0.5">Ordenado por investimento</p>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="bg-gray-50 text-gray-400 uppercase tracking-wider">
+                        <th className="text-left px-4 py-3 font-medium">Campanha</th>
+                        <th className="text-right px-4 py-3 font-medium">Invest.</th>
+                        <th className="text-right px-4 py-3 font-medium">Cliques</th>
+                        <th className="text-right px-4 py-3 font-medium">Compras</th>
+                        <th className="text-right px-4 py-3 font-medium">Receita</th>
+                        <th className="text-right px-4 py-3 font-medium">ROAS</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {metaKpis.campanhas.map((c, i) => (
+                        <tr key={i} className="border-t border-gray-50 hover:bg-gray-50 transition-colors">
+                          <td className="px-4 py-3 text-gray-700 font-medium max-w-[260px] truncate">{c.nome}</td>
+                          <td className="px-4 py-3 text-right text-gray-600">{fmtR(c.spend)}</td>
+                          <td className="px-4 py-3 text-right text-gray-500">{c.cliques.toLocaleString('pt-BR')}</td>
+                          <td className="px-4 py-3 text-right text-gray-500">{c.compras}</td>
+                          <td className="px-4 py-3 text-right text-gray-600">{c.receita > 0 ? fmtR(c.receita) : '—'}</td>
+                          <td className="px-4 py-3 text-right">
+                            <span className={`font-semibold ${c.roas >= 2 ? 'text-emerald-600' : c.roas >= 1 ? 'text-amber-500' : 'text-gray-400'}`}>
+                              {c.spend > 0 ? `${c.roas.toFixed(2)}x` : '—'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Gráfico combinado */}
         {m.porDia.length > 0 && (

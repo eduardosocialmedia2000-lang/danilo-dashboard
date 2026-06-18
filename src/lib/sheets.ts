@@ -1,6 +1,7 @@
 const SPREADSHEET_ID = '1l5UcSQpfZoVJ2ozz_4a6fRjEQdi33O5O-3f9SgP9NmY'
 const LEADS_GID = '1703058783'   // aba "Leads Consulta"
 const VENDAS_GID = '2017298324'  // aba "Vendas Kiwify"
+const META_ADS_SHEET = 'Meta_Ads' // aba criada pelo Apps Script syncMetaAdsParaSheets
 
 export interface Lead {
   id: string
@@ -221,6 +222,68 @@ export async function fetchVendas(): Promise<Venda[]> {
   }
 
   return vendas
+}
+
+// ---- Meta Ads ----
+
+export interface MetaAd {
+  data: string          // A - yyyy-mm-dd
+  campanha: string      // B
+  conjunto: string      // C
+  anuncio: string       // D
+  adId: string          // E
+  spend: number         // F
+  impressoes: number    // G
+  cliques: number       // H
+  ctr: number           // I
+  cpm: number           // J
+  cpc: number           // K
+  alcance: number       // L
+  compras: number       // O
+  receitaCompras: number// P
+}
+
+async function parseGvizMetaAds(): Promise<MetaAd[]> {
+  const tq = encodeURIComponent('select A,B,C,D,E,F,G,H,I,J,K,L,O,P')
+  const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&sheet=${META_ADS_SHEET}&headers=1&tq=${tq}`
+  const res = await fetch(url, { next: { revalidate: 300 } })
+  if (!res.ok) return []
+  const text = await res.text()
+  const start = text.indexOf('setResponse(')
+  if (start === -1) return []
+  const jsonStr = text.substring(start + 'setResponse('.length, text.lastIndexOf(')'))
+  const json = JSON.parse(jsonStr)
+  const rows: { c?: (GvizCell | null)[] }[] = json?.table?.rows ?? []
+
+  return rows.map(row => {
+    const cells = row.c ?? []
+    const getStr = (i: number) => { const c = cells[i]; return c ? String(c.f ?? c.v ?? '').trim() : '' }
+    const getNum = (i: number) => { const c = cells[i]; return c ? (typeof c.v === 'number' ? c.v : parseFloat(String(c.v ?? '0')) || 0) : 0 }
+    return {
+      data: getStr(0),
+      campanha: getStr(1),
+      conjunto: getStr(2),
+      anuncio: getStr(3),
+      adId: getStr(4),
+      spend: getNum(5),
+      impressoes: getNum(6),
+      cliques: getNum(7),
+      ctr: getNum(8),
+      cpm: getNum(9),
+      cpc: getNum(10),
+      alcance: getNum(11),
+      compras: getNum(12),
+      receitaCompras: getNum(13),
+    }
+  }).filter(r => r.data !== '' && r.data !== 'Data')
+}
+
+export async function fetchMetaAds(): Promise<MetaAd[]> {
+  try {
+    return await parseGvizMetaAds()
+  } catch {
+    return []
+  }
 }
 
 export function buildDashboardData(leads: Lead[]): DashboardData {
