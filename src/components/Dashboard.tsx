@@ -189,6 +189,7 @@ export default function Dashboard() {
     })
     const campanhas = Object.entries(campanhaMap)
       .map(([nome, v]) => ({ nome, ...v, roas: v.spend > 0 ? v.receita / v.spend : 0 }))
+      .filter(c => c.spend > 0)  // somente campanhas ativas (com gasto no período)
       .sort((a, b) => b.spend - a.spend)
 
     return { spend, compras, receitaMeta, cliques, impressoes, roas, cpl, cpa, ctr, spendDia, campanhas }
