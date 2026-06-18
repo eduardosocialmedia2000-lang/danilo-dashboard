@@ -1,5 +1,6 @@
 const SPREADSHEET_ID = '1l5UcSQpfZoVJ2ozz_4a6fRjEQdi33O5O-3f9SgP9NmY'
-const LEADS_GID = '1703058783'   // aba "Leads Consulta"
+const LEADS_GID = '1703058783'   // aba "Leads Consulta" (legado)
+const KOMMO_LEADS_SHEET = 'Kommo_Leads' // aba atualizada pelo Apps Script (1875 leads)
 const VENDAS_GID = '2017298324'  // aba "Vendas Kiwify"
 const META_ADS_SHEET = 'Meta_Ads' // aba criada pelo Apps Script syncMetaAdsParaSheets
 
@@ -131,7 +132,8 @@ async function fetchViaGviz(): Promise<Lead[]> {
 
   while (true) {
     const tq = encodeURIComponent(`select A,B,C,D,E,F,G,H,I,J limit ${PAGE} offset ${offset}`)
-    const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&gid=${LEADS_GID}&headers=1&tq=${tq}`
+    // Lê Kommo_Leads (fonte principal) — fallback para Leads Consulta se não existir
+    const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&sheet=${KOMMO_LEADS_SHEET}&headers=1&tq=${tq}`
     const res = await fetch(url, { cache: 'no-store' })
     if (!res.ok) break
     const text = await res.text()
