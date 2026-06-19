@@ -252,6 +252,11 @@ export default function Dashboard() {
               <RefreshCw className="w-3 h-3" />
               Atualizar
             </button>
+            <button
+              onClick={async () => { await fetch('/api/auth/logout', { method: 'POST' }); window.location.href = '/login' }}
+              className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-red-500 bg-gray-50 hover:bg-red-50 border border-gray-200 hover:border-red-200 px-3 py-1.5 rounded-lg transition-all">
+              Sair
+            </button>
           </div>
         </div>
       </header>
