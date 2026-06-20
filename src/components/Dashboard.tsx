@@ -7,9 +7,8 @@ import {
 } from 'recharts'
 import {
   Users, UserCheck, TrendingUp, Calendar, RefreshCw, Activity,
-  Filter, ChevronDown, DollarSign, ShoppingCart, Percent, BarChart2, Play,
+  Filter, ChevronDown, DollarSign, ShoppingCart, Percent, BarChart2,
 } from 'lucide-react'
-import Link from 'next/link'
 import { KPICard } from './KPICard'
 import {
   type LeadRaw, type VendaRaw, type Lead, type Venda, type FilterState,
@@ -242,12 +241,7 @@ export default function Dashboard() {
                 {refreshCount > 1 && <span className="text-emerald-500 ml-1">· #{refreshCount}</span>}
               </span>
             )}
-            <Link href="/youtube"
-              className="flex items-center gap-1.5 text-xs text-red-500 hover:text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 hover:border-red-300 px-3 py-1.5 rounded-lg transition-all">
-              <Play className="w-3 h-3" />
-              YouTube
-            </Link>
-            <button onClick={fetchData}
+<button onClick={fetchData}
               className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-emerald-600 bg-gray-50 hover:bg-emerald-50 border border-gray-200 hover:border-emerald-300 px-3 py-1.5 rounded-lg transition-all">
               <RefreshCw className="w-3 h-3" />
               Atualizar
