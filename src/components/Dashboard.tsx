@@ -541,10 +541,10 @@ export default function Dashboard() {
                         <td className="px-4 py-3 font-medium text-gray-700">{v.cliente || '—'}</td>
                         <td className="px-4 py-3 text-gray-500">
                           <span className="px-2 py-0.5 rounded-full text-xs font-medium" style={{ backgroundColor: PALETTE[i % PALETTE.length] + '20', color: PALETTE[i % PALETTE.length] }}>
-                            {v.utmSource || 'orgânico'}
+                            {v.origem || 'orgânico'}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-gray-400 max-w-[200px] truncate">{v.utmCampaign || '—'}</td>
+                        <td className="px-4 py-3 text-gray-400 max-w-[200px] truncate">{v.campanha || '—'}</td>
                         <td className="px-4 py-3 text-gray-400">{v.data.toLocaleDateString('pt-BR')}</td>
                         <td className="px-4 py-3 text-right font-semibold text-emerald-600">{fmtR(v.valor)}</td>
                       </tr>
