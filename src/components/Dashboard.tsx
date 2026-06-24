@@ -2,12 +2,13 @@
 
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   BarChart, Bar, Cell,
 } from 'recharts'
 import {
-  Users, UserCheck, TrendingUp, Calendar, RefreshCw, Activity,
+  Users, TrendingUp, Calendar, RefreshCw, Activity,
   Filter, ChevronDown, DollarSign, ShoppingCart, Percent, BarChart2,
+  LayoutDashboard, MessageCircle, Package, Megaphone,
 } from 'lucide-react'
 import { KPICard } from './KPICard'
 import {
@@ -29,6 +30,15 @@ const PALETTE = ['#10b981','#3b82f6','#8b5cf6','#f59e0b','#ef4444','#06b6d4','#e
 
 const fmt = (n: number) => n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const fmtR = (n: number) => `R$ ${fmt(n)}`
+
+type Tab = 'geral' | 'consultas' | 'infoproduto' | 'campanhas'
+
+const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
+  { id: 'geral',       label: 'Visão Geral',  icon: <LayoutDashboard className="w-3.5 h-3.5" /> },
+  { id: 'consultas',   label: 'Consultas',    icon: <MessageCircle className="w-3.5 h-3.5" /> },
+  { id: 'infoproduto', label: 'Infoproduto',  icon: <Package className="w-3.5 h-3.5" /> },
+  { id: 'campanhas',   label: 'Campanhas',    icon: <Megaphone className="w-3.5 h-3.5" /> },
+]
 
 function Select({ value, onChange, options, placeholder }: {
   value: string; onChange: (v: string) => void
@@ -87,6 +97,7 @@ export default function Dashboard() {
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
   const [refreshCount, setRefreshCount] = useState(0)
   const [filter, setFilter] = useState<FilterState>(DEFAULT_FILTER)
+  const [activeTab, setActiveTab] = useState<Tab>('geral')
 
   const setF = (patch: Partial<FilterState>) => setFilter(f => ({ ...f, ...patch }))
 
@@ -126,11 +137,9 @@ export default function Dashboard() {
     [allLeads, allVendas]
   )
 
-  // Meta Ads metrics — filtrados pelo mesmo período do filtro de leads/vendas
   const metaFiltered = useMemo(() => {
     if (!allMetaAds.length) return allMetaAds
     const now = new Date()
-    // Ajuste BRT para comparar corretamente com datas ISO "yyyy-mm-dd" (interpretadas como UTC)
     const nowBRT = new Date(now.getTime() - 3 * 60 * 60 * 1000)
     const todayUTC = `${nowBRT.getUTCFullYear()}-${String(nowBRT.getUTCMonth() + 1).padStart(2, '0')}-${String(nowBRT.getUTCDate()).padStart(2, '0')}`
     const startOfMonthUTC = `${nowBRT.getUTCFullYear()}-${String(nowBRT.getUTCMonth() + 1).padStart(2, '0')}-01`
@@ -166,7 +175,6 @@ export default function Dashboard() {
     const cpa = compras > 0 ? spend / compras : 0
     const ctr = impressoes > 0 ? (cliques / impressoes) * 100 : 0
 
-    // spend por dia (últimos 30)
     const spendPorDia: Record<string, number> = {}
     metaFiltered.forEach(r => {
       if (r.data) spendPorDia[r.data] = (spendPorDia[r.data] || 0) + r.spend
@@ -176,7 +184,6 @@ export default function Dashboard() {
       .slice(-30)
       .map(([data, valor]) => ({ data: data.slice(5).replace('-', '/'), valor }))
 
-    // por campanha
     const campanhaMap: Record<string, { spend: number; compras: number; receita: number; cliques: number }> = {}
     metaFiltered.forEach(r => {
       const k = r.campanha || 'Sem campanha'
@@ -188,7 +195,7 @@ export default function Dashboard() {
     })
     const campanhas = Object.entries(campanhaMap)
       .map(([nome, v]) => ({ nome, ...v, roas: v.spend > 0 ? v.receita / v.spend : 0 }))
-      .filter(c => c.spend > 0)  // somente campanhas ativas (com gasto no período)
+      .filter(c => c.spend > 0)
       .sort((a, b) => b.spend - a.spend)
 
     return { spend, compras, receitaMeta, cliques, impressoes, roas, cpl, cpa, ctr, spendDia, campanhas }
@@ -231,7 +238,7 @@ export default function Dashboard() {
             </div>
             <div className="leading-tight">
               <h1 className="text-sm font-bold text-gray-900">Dr. Danilo Matsunaga</h1>
-              <p className="text-xs text-gray-400">Dashboard de Leads & Vendas</p>
+              <p className="text-xs text-gray-400">Dashboard de Performance</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -241,7 +248,7 @@ export default function Dashboard() {
                 {refreshCount > 1 && <span className="text-emerald-500 ml-1">· #{refreshCount}</span>}
               </span>
             )}
-<button onClick={fetchData}
+            <button onClick={fetchData}
               className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-emerald-600 bg-gray-50 hover:bg-emerald-50 border border-gray-200 hover:border-emerald-300 px-3 py-1.5 rounded-lg transition-all">
               <RefreshCw className="w-3 h-3" />
               Atualizar
@@ -252,6 +259,24 @@ export default function Dashboard() {
               Sair
             </button>
           </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="max-w-7xl mx-auto px-5 flex gap-1 border-t border-gray-100">
+          {TABS.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${
+                activeTab === tab.id
+                  ? 'border-emerald-500 text-emerald-600'
+                  : 'border-transparent text-gray-400 hover:text-gray-600'
+              }`}
+            >
+              {tab.icon}
+              {tab.label}
+            </button>
+          ))}
         </div>
       </header>
 
@@ -269,7 +294,9 @@ export default function Dashboard() {
               <DateInput label="Até" value={filter.customEnd} onChange={v => setF({ customEnd: v })} />
             </>
           )}
-          <Select value={filter.pipeline} onChange={v => setF({ pipeline: v })} options={pipelineOptions} placeholder="Todos os pipelines" />
+          {activeTab === 'consultas' && (
+            <Select value={filter.pipeline} onChange={v => setF({ pipeline: v })} options={pipelineOptions} placeholder="Todos os pipelines" />
+          )}
           {isFiltered && (
             <button onClick={() => setFilter(DEFAULT_FILTER)}
               className="text-xs text-emerald-600 hover:text-emerald-700 font-medium underline underline-offset-2">
@@ -286,44 +313,264 @@ export default function Dashboard() {
 
       <main className="max-w-7xl mx-auto px-5 py-6 space-y-6">
 
-        {/* KPIs Leads */}
-        <div>
-          <p className="text-xs text-gray-400 font-medium uppercase tracking-wider mb-3">Leads</p>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <KPICard title="Total de Leads" value={m.totalLeads.toLocaleString('pt-BR')} subtitle="No período" icon={<Users className="w-4 h-4" />} color="green" />
-            <KPICard title="Leads Hoje" value={m.leadsHoje} subtitle="Desde meia-noite" icon={<Calendar className="w-4 h-4" />} color="blue" />
-            <KPICard title="Esta Semana" value={m.leadsSemana} subtitle="Últimos 7 dias" icon={<TrendingUp className="w-4 h-4" />} color="purple" />
-            <KPICard title="Este Mês" value={m.leadsMes} subtitle={new Date().toLocaleDateString('pt-BR', { month: 'long' })} icon={<UserCheck className="w-4 h-4" />} color="amber" />
-          </div>
-        </div>
+        {/* ── ABA: VISÃO GERAL ── */}
+        {activeTab === 'geral' && (
+          <>
+            {/* KPIs combinados */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <KPICard title="Total de Leads" value={m.totalLeads.toLocaleString('pt-BR')} subtitle="No período" icon={<Users className="w-4 h-4" />} color="green" />
+              <KPICard title="Leads Hoje" value={m.leadsHoje} subtitle="Desde meia-noite" icon={<Calendar className="w-4 h-4" />} color="blue" />
+              <KPICard title="Faturamento" value={fmtR(m.faturamentoTotal)} subtitle={`${m.totalVendas} vendas · ticket ${fmtR(m.ticketMedio)}`} icon={<DollarSign className="w-4 h-4" />} color="purple" />
+              <KPICard title="Investimento Meta" value={fmtR(metaKpis.spend)} subtitle={`CPL ${fmtR(metaKpis.cpl)}`} icon={<TrendingUp className="w-4 h-4" />} color="amber" />
+            </div>
 
-        {/* KPIs Vendas */}
-        <div>
-          <p className="text-xs text-gray-400 font-medium uppercase tracking-wider mb-3">Vendas Kiwify</p>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <KPICard title="Faturamento Total" value={fmtR(m.faturamentoTotal)} subtitle={`${m.totalVendas} vendas no período`} icon={<DollarSign className="w-4 h-4" />} color="green" />
-            <KPICard title="Faturamento Hoje" value={fmtR(m.faturamentoHoje)} subtitle={`${m.vendasHoje} vendas`} icon={<ShoppingCart className="w-4 h-4" />} color="blue" />
-            <KPICard title="Faturamento do Mês" value={fmtR(m.faturamentoMes)} subtitle={`${m.vendasMes} vendas`} icon={<BarChart2 className="w-4 h-4" />} color="purple" />
-            <KPICard title="Taxa de Conversão" value={`${m.taxaConversao.toFixed(2)}%`} subtitle={`Ticket médio: ${fmtR(m.ticketMedio)}`} icon={<Percent className="w-4 h-4" />} color="amber" />
-          </div>
-        </div>
+            {/* Gráfico leads + vendas por dia */}
+            {m.porDia.length > 0 && (
+              <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+                <div className="flex items-center justify-between mb-5">
+                  <div>
+                    <h2 className="text-sm font-semibold text-gray-900">Leads & Vendas por Dia</h2>
+                    <p className="text-xs text-gray-400 mt-0.5">Evolução no período</p>
+                  </div>
+                  <div className="flex gap-4 text-xs">
+                    <span className="flex items-center gap-1.5 text-gray-500"><span className="w-3 h-0.5 bg-emerald-500 inline-block rounded" />Leads</span>
+                    <span className="flex items-center gap-1.5 text-gray-500"><span className="w-3 h-0.5 bg-blue-500 inline-block rounded" />Vendas</span>
+                  </div>
+                </div>
+                <ResponsiveContainer width="100%" height={210}>
+                  <LineChart data={m.porDia} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+                    <XAxis dataKey="data" tick={{ fontSize: 10, fill: '#9ca3af' }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+                    <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} tickLine={false} axisLine={false} width={28} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Line type="monotone" dataKey="leads" name="leads" stroke="#10b981" strokeWidth={2.5} dot={{ fill: '#10b981', r: 2, strokeWidth: 0 }} activeDot={{ r: 4, strokeWidth: 0 }} />
+                    <Line type="monotone" dataKey="vendas" name="vendas" stroke="#3b82f6" strokeWidth={2.5} dot={{ fill: '#3b82f6', r: 2, strokeWidth: 0 }} activeDot={{ r: 4, strokeWidth: 0 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            )}
 
-        {/* KPIs Meta Ads */}
-        {allMetaAds.length > 0 && (
-          <div>
-            <p className="text-xs text-gray-400 font-medium uppercase tracking-wider mb-3">Meta Ads</p>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+            {/* Origem leads + vendas */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+              <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+                <h2 className="text-sm font-semibold text-gray-900 mb-1">Origem dos Leads</h2>
+                <p className="text-xs text-gray-400 mb-5">Canal de aquisição (UTM Source)</p>
+                <div className="space-y-3">
+                  {m.porFonte.map((item, i) => (
+                    <div key={item.name}>
+                      <div className="flex justify-between text-xs mb-1">
+                        <span className="font-medium text-gray-700">{item.name}</span>
+                        <span className="text-gray-400">{item.value} ({item.pct}%)</span>
+                      </div>
+                      <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${item.pct}%`, backgroundColor: PALETTE[i % PALETTE.length] }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+                <h2 className="text-sm font-semibold text-gray-900 mb-1">Origem das Vendas</h2>
+                <p className="text-xs text-gray-400 mb-5">Faturamento por canal</p>
+                {m.vendasPorFonte.length === 0 ? (
+                  <div className="flex items-center justify-center h-40 text-gray-400 text-sm">Sem vendas no período</div>
+                ) : (
+                  <div className="space-y-3">
+                    {m.vendasPorFonte.map((item, i) => {
+                      const maxReceita = Math.max(...m.vendasPorFonte.map(v => v.receita))
+                      const pct = maxReceita > 0 ? (item.receita / maxReceita) * 100 : 0
+                      return (
+                        <div key={item.name}>
+                          <div className="flex justify-between text-xs mb-1">
+                            <span className="font-medium text-gray-700">{item.name || 'Orgânico'}</span>
+                            <span className="text-gray-400">{item.value} vendas · {fmtR(item.receita)}</span>
+                          </div>
+                          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                            <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: PALETTE[i % PALETTE.length] }} />
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* ── ABA: CONSULTAS ── */}
+        {activeTab === 'consultas' && (
+          <>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <KPICard title="Total de Leads" value={m.totalLeads.toLocaleString('pt-BR')} subtitle="No período" icon={<Users className="w-4 h-4" />} color="green" />
+              <KPICard title="Leads Hoje" value={m.leadsHoje} subtitle="Desde meia-noite" icon={<Calendar className="w-4 h-4" />} color="blue" />
+              <KPICard title="Esta Semana" value={m.leadsSemana} subtitle="Últimos 7 dias" icon={<TrendingUp className="w-4 h-4" />} color="purple" />
+              <KPICard title="Este Mês" value={m.leadsMes} subtitle={new Date().toLocaleDateString('pt-BR', { month: 'long' })} icon={<Users className="w-4 h-4" />} color="amber" />
+            </div>
+
+            {/* Meta Ads KPIs */}
+            {allMetaAds.length > 0 && (
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <KPICard title="Investimento Meta" value={fmtR(metaKpis.spend)} subtitle="Meta Ads no período" icon={<DollarSign className="w-4 h-4" />} color="green" />
+                <KPICard title="CPL" value={fmtR(metaKpis.cpl)} subtitle="Custo por lead" icon={<Users className="w-4 h-4" />} color="blue" />
+                <KPICard title="ROAS Consultas" value={`${metaKpis.roas.toFixed(2)}x`} subtitle={`Receita CAPI: ${fmtR(metaKpis.receitaMeta)}`} icon={<TrendingUp className="w-4 h-4" />} color="purple" />
+                <KPICard title="CTR" value={`${metaKpis.ctr.toFixed(2)}%`} subtitle={`${metaKpis.cliques.toLocaleString('pt-BR')} cliques`} icon={<Percent className="w-4 h-4" />} color="amber" />
+              </div>
+            )}
+
+            {/* Pipeline + Etapas */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+              <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+                <h2 className="text-sm font-semibold text-gray-900 mb-1">Por Pipeline</h2>
+                <p className="text-xs text-gray-400 mb-5">Volume por funil de atendimento</p>
+                <ResponsiveContainer width="100%" height={Math.max(200, pipelineTop.length * 36)}>
+                  <BarChart data={pipelineTop} layout="vertical" margin={{ left: 4, right: 40 }}>
+                    <XAxis type="number" tick={{ fontSize: 10, fill: '#9ca3af' }} tickLine={false} axisLine={false} />
+                    <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#374151' }} tickLine={false} axisLine={false} width={160} />
+                    <Tooltip formatter={(v) => [`${v} leads`, '']} contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb', fontSize: 12 }} />
+                    <Bar dataKey="value" radius={[0, 6, 6, 0]} maxBarSize={24}>
+                      {pipelineTop.map((_, i) => <Cell key={i} fill={PALETTE[i % PALETTE.length]} />)}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+                <h2 className="text-sm font-semibold text-gray-900 mb-1">Por Etapa</h2>
+                <p className="text-xs text-gray-400 mb-5">Posição dos leads no funil</p>
+                {etapaTop.length === 0 ? (
+                  <div className="flex items-center justify-center h-40 text-gray-400 text-sm">Sem dados</div>
+                ) : (
+                  <div className="space-y-2.5">
+                    {etapaTop.map((item, i) => {
+                      const pct = m.totalLeads > 0 ? (item.value / m.totalLeads) * 100 : 0
+                      return (
+                        <div key={item.name}>
+                          <div className="flex justify-between text-xs mb-1">
+                            <span className="text-gray-700 font-medium truncate pr-2 max-w-[60%]">{item.name}</span>
+                            <span className="text-gray-400 shrink-0">{item.value} · {pct.toFixed(0)}%</span>
+                          </div>
+                          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                            <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: PALETTE[i % PALETTE.length] }} />
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Top Cidades */}
+            {m.porCidade.length > 0 && (
+              <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+                <h2 className="text-sm font-semibold text-gray-900 mb-1">Top Cidades</h2>
+                <p className="text-xs text-gray-400 mb-5">Leads com cidade identificada</p>
+                <ResponsiveContainer width="100%" height={180}>
+                  <BarChart data={m.porCidade} margin={{ top: 0, right: 8, bottom: 0, left: 0 }}>
+                    <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
+                    <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} tickLine={false} axisLine={false} width={28} />
+                    <Tooltip formatter={(v) => [`${v} leads`, '']} contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb', fontSize: 12 }} />
+                    <Bar dataKey="value" radius={[5, 5, 0, 0]} maxBarSize={40}>
+                      {m.porCidade.map((_, i) => <Cell key={i} fill={PALETTE[i % PALETTE.length]} />)}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ── ABA: INFOPRODUTO ── */}
+        {activeTab === 'infoproduto' && (
+          <>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <KPICard title="Faturamento Total" value={fmtR(m.faturamentoTotal)} subtitle={`${m.totalVendas} vendas no período`} icon={<DollarSign className="w-4 h-4" />} color="green" />
+              <KPICard title="Faturamento Hoje" value={fmtR(m.faturamentoHoje)} subtitle={`${m.vendasHoje} vendas`} icon={<ShoppingCart className="w-4 h-4" />} color="blue" />
+              <KPICard title="Faturamento do Mês" value={fmtR(m.faturamentoMes)} subtitle={`${m.vendasMes} vendas`} icon={<BarChart2 className="w-4 h-4" />} color="purple" />
+              <KPICard title="Ticket Médio" value={fmtR(m.ticketMedio)} subtitle={`Conversão: ${m.taxaConversao.toFixed(2)}%`} icon={<Percent className="w-4 h-4" />} color="amber" />
+            </div>
+
+            {/* Origem das vendas */}
+            <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+              <h2 className="text-sm font-semibold text-gray-900 mb-1">Vendas por Canal</h2>
+              <p className="text-xs text-gray-400 mb-5">Faturamento por origem (utm_source)</p>
+              {m.vendasPorFonte.length === 0 ? (
+                <div className="flex items-center justify-center h-40 text-gray-400 text-sm">Sem vendas no período</div>
+              ) : (
+                <div className="space-y-4">
+                  {m.vendasPorFonte.map((item, i) => {
+                    const maxReceita = Math.max(...m.vendasPorFonte.map(v => v.receita))
+                    const pct = maxReceita > 0 ? (item.receita / maxReceita) * 100 : 0
+                    return (
+                      <div key={item.name}>
+                        <div className="flex justify-between text-xs mb-1.5">
+                          <span className="font-semibold text-gray-800">{item.name || 'Orgânico'}</span>
+                          <span className="text-gray-500">{item.value} vendas · <span className="font-semibold text-gray-800">{fmtR(item.receita)}</span></span>
+                        </div>
+                        <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: PALETTE[i % PALETTE.length] }} />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Tabela de vendas recentes */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="p-5 border-b border-gray-100">
+                <h2 className="text-sm font-semibold text-gray-900">Vendas Recentes</h2>
+                <p className="text-xs text-gray-400 mt-0.5">Kiwify — ordenado por data</p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-gray-50 text-gray-400 uppercase tracking-wider">
+                      <th className="text-left px-4 py-3 font-medium">Cliente</th>
+                      <th className="text-left px-4 py-3 font-medium">Canal</th>
+                      <th className="text-left px-4 py-3 font-medium">Campanha</th>
+                      <th className="text-left px-4 py-3 font-medium">Data</th>
+                      <th className="text-right px-4 py-3 font-medium">Valor</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.vendas.slice().sort((a, b) => b.data.getTime() - a.data.getTime()).slice(0, 50).map((v, i) => (
+                      <tr key={i} className="border-t border-gray-50 hover:bg-gray-50 transition-colors">
+                        <td className="px-4 py-3 font-medium text-gray-700">{v.cliente || '—'}</td>
+                        <td className="px-4 py-3 text-gray-500">
+                          <span className="px-2 py-0.5 rounded-full text-xs font-medium" style={{ backgroundColor: PALETTE[i % PALETTE.length] + '20', color: PALETTE[i % PALETTE.length] }}>
+                            {v.utmSource || 'orgânico'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-gray-400 max-w-[200px] truncate">{v.utmCampaign || '—'}</td>
+                        <td className="px-4 py-3 text-gray-400">{v.data.toLocaleDateString('pt-BR')}</td>
+                        <td className="px-4 py-3 text-right font-semibold text-emerald-600">{fmtR(v.valor)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* ── ABA: CAMPANHAS ── */}
+        {activeTab === 'campanhas' && (
+          <>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <KPICard title="Investimento" value={fmtR(metaKpis.spend)} subtitle="Meta Ads no período" icon={<DollarSign className="w-4 h-4" />} color="green" />
-              <KPICard title="ROAS" value={`${metaKpis.roas.toFixed(2)}x`} subtitle={`Receita: ${fmtR(metaKpis.receitaMeta)}`} icon={<TrendingUp className="w-4 h-4" />} color="blue" />
+              <KPICard title="ROAS" value={`${metaKpis.roas.toFixed(2)}x`} subtitle={`Receita CAPI: ${fmtR(metaKpis.receitaMeta)}`} icon={<TrendingUp className="w-4 h-4" />} color="blue" />
               <KPICard title="CPL" value={fmtR(metaKpis.cpl)} subtitle="Custo por lead" icon={<Users className="w-4 h-4" />} color="purple" />
-              <KPICard title="CPA" value={metaKpis.compras > 0 ? fmtR(metaKpis.cpa) : '—'} subtitle={`${metaKpis.compras} compras · CTR ${metaKpis.ctr.toFixed(2)}%`} icon={<Percent className="w-4 h-4" />} color="amber" />
+              <KPICard title="CTR" value={`${metaKpis.ctr.toFixed(2)}%`} subtitle={`${metaKpis.compras} compras via CAPI`} icon={<Percent className="w-4 h-4" />} color="amber" />
             </div>
 
             {/* Gráfico spend por dia */}
             {metaKpis.spendDia.length > 1 && (
-              <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm mb-4">
+              <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
                 <h2 className="text-sm font-semibold text-gray-900 mb-1">Investimento por Dia</h2>
-                <p className="text-xs text-gray-400 mb-4">Meta Ads — últimos 30 dias</p>
+                <p className="text-xs text-gray-400 mb-4">Meta Ads — evolução no período</p>
                 <ResponsiveContainer width="100%" height={180}>
                   <BarChart data={metaKpis.spendDia} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
@@ -336,11 +583,11 @@ export default function Dashboard() {
               </div>
             )}
 
-            {/* Tabela de campanhas */}
+            {/* Tabela campanhas */}
             {metaKpis.campanhas.length > 0 && (
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 <div className="p-5 border-b border-gray-100">
-                  <h2 className="text-sm font-semibold text-gray-900">Campanhas</h2>
+                  <h2 className="text-sm font-semibold text-gray-900">Campanhas Ativas</h2>
                   <p className="text-xs text-gray-400 mt-0.5">Ordenado por investimento</p>
                 </div>
                 <div className="overflow-x-auto">
@@ -358,7 +605,7 @@ export default function Dashboard() {
                     <tbody>
                       {metaKpis.campanhas.map((c, i) => (
                         <tr key={i} className="border-t border-gray-50 hover:bg-gray-50 transition-colors">
-                          <td className="px-4 py-3 text-gray-700 font-medium max-w-[260px] truncate">{c.nome}</td>
+                          <td className="px-4 py-3 text-gray-700 font-medium max-w-[280px] truncate">{c.nome}</td>
                           <td className="px-4 py-3 text-right text-gray-600">{fmtR(c.spend)}</td>
                           <td className="px-4 py-3 text-right text-gray-500">{c.cliques.toLocaleString('pt-BR')}</td>
                           <td className="px-4 py-3 text-right text-gray-500">{c.compras}</td>
@@ -375,146 +622,11 @@ export default function Dashboard() {
                 </div>
               </div>
             )}
-          </div>
-        )}
-
-        {/* Gráfico combinado */}
-        {m.porDia.length > 0 && (
-          <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-            <div className="flex items-center justify-between mb-5">
-              <div>
-                <h2 className="text-sm font-semibold text-gray-900">Leads & Vendas por Dia</h2>
-                <p className="text-xs text-gray-400 mt-0.5">Últimos 30 dias</p>
-              </div>
-              <div className="flex gap-4 text-xs">
-                <span className="flex items-center gap-1.5 text-gray-500"><span className="w-3 h-0.5 bg-emerald-500 inline-block rounded" />Leads</span>
-                <span className="flex items-center gap-1.5 text-gray-500"><span className="w-3 h-0.5 bg-blue-500 inline-block rounded" />Vendas</span>
-              </div>
-            </div>
-            <ResponsiveContainer width="100%" height={210}>
-              <LineChart data={m.porDia} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
-                <XAxis dataKey="data" tick={{ fontSize: 10, fill: '#9ca3af' }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
-                <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} tickLine={false} axisLine={false} width={28} />
-                <Tooltip content={<CustomTooltip />} />
-                <Line type="monotone" dataKey="leads" name="leads" stroke="#10b981" strokeWidth={2.5} dot={{ fill: '#10b981', r: 2, strokeWidth: 0 }} activeDot={{ r: 4, strokeWidth: 0 }} />
-                <Line type="monotone" dataKey="vendas" name="vendas" stroke="#3b82f6" strokeWidth={2.5} dot={{ fill: '#3b82f6', r: 2, strokeWidth: 0 }} activeDot={{ r: 4, strokeWidth: 0 }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-
-        {/* Pipeline + Etapas */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-            <h2 className="text-sm font-semibold text-gray-900 mb-1">Por Pipeline</h2>
-            <p className="text-xs text-gray-400 mb-5">Volume por funil de atendimento</p>
-            <ResponsiveContainer width="100%" height={Math.max(200, pipelineTop.length * 36)}>
-              <BarChart data={pipelineTop} layout="vertical" margin={{ left: 4, right: 40 }}>
-                <XAxis type="number" tick={{ fontSize: 10, fill: '#9ca3af' }} tickLine={false} axisLine={false} />
-                <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#374151' }} tickLine={false} axisLine={false} width={160} />
-                <Tooltip formatter={(v) => [`${v} leads`, '']} contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb', fontSize: 12 }} />
-                <Bar dataKey="value" radius={[0, 6, 6, 0]} maxBarSize={24}>
-                  {pipelineTop.map((_, i) => <Cell key={i} fill={PALETTE[i % PALETTE.length]} />)}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-
-          <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-            <h2 className="text-sm font-semibold text-gray-900 mb-1">Por Etapa</h2>
-            <p className="text-xs text-gray-400 mb-5">Posição dos leads no funil</p>
-            {etapaTop.length === 0 ? (
-              <div className="flex items-center justify-center h-40 text-gray-400 text-sm">Sem dados</div>
-            ) : (
-              <div className="space-y-2.5">
-                {etapaTop.map((item, i) => {
-                  const pct = m.totalLeads > 0 ? (item.value / m.totalLeads) * 100 : 0
-                  return (
-                    <div key={item.name}>
-                      <div className="flex justify-between text-xs mb-1">
-                        <span className="text-gray-700 font-medium truncate pr-2 max-w-[60%]">{item.name}</span>
-                        <span className="text-gray-400 shrink-0">{item.value} · {pct.toFixed(0)}%</span>
-                      </div>
-                      <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: PALETTE[i % PALETTE.length] }} />
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Origem Leads + Origem Vendas */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-            <h2 className="text-sm font-semibold text-gray-900 mb-1">Origem dos Leads</h2>
-            <p className="text-xs text-gray-400 mb-5">Canal de aquisição (UTM Source)</p>
-            <div className="space-y-3">
-              {m.porFonte.map((item, i) => (
-                <div key={item.name}>
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="font-medium text-gray-700">{item.name}</span>
-                    <span className="text-gray-400">{item.value} ({item.pct}%)</span>
-                  </div>
-                  <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                    <div className="h-full rounded-full transition-all duration-500" style={{ width: `${item.pct}%`, backgroundColor: PALETTE[i % PALETTE.length] }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Origem Vendas */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-            <h2 className="text-sm font-semibold text-gray-900 mb-1">Origem das Vendas</h2>
-            <p className="text-xs text-gray-400 mb-5">Faturamento por canal</p>
-            {m.vendasPorFonte.length === 0 ? (
-              <div className="flex items-center justify-center h-40 text-gray-400 text-sm">Sem vendas no período</div>
-            ) : (
-              <div className="space-y-3">
-                {m.vendasPorFonte.map((item, i) => {
-                  const maxReceita = Math.max(...m.vendasPorFonte.map(v => v.receita))
-                  const pct = maxReceita > 0 ? (item.receita / maxReceita) * 100 : 0
-                  return (
-                    <div key={item.name}>
-                      <div className="flex justify-between text-xs mb-1">
-                        <span className="font-medium text-gray-700">{item.name || 'Orgânico'}</span>
-                        <span className="text-gray-400">{item.value} vendas · {fmtR(item.receita)}</span>
-                      </div>
-                      <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: PALETTE[i % PALETTE.length] }} />
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Top Cidades */}
-        {m.porCidade.length > 0 && (
-          <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-            <h2 className="text-sm font-semibold text-gray-900 mb-1">Top Cidades</h2>
-            <p className="text-xs text-gray-400 mb-5">Leads com cidade identificada</p>
-            <ResponsiveContainer width="100%" height={180}>
-              <BarChart data={m.porCidade} margin={{ top: 0, right: 8, bottom: 0, left: 0 }}>
-                <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} tickLine={false} axisLine={false} width={28} />
-                <Tooltip formatter={(v) => [`${v} leads`, '']} contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb', fontSize: 12 }} />
-                <Bar dataKey="value" radius={[5, 5, 0, 0]} maxBarSize={40}>
-                  {m.porCidade.map((_, i) => <Cell key={i} fill={PALETTE[i % PALETTE.length]} />)}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          </>
         )}
 
         <p className="text-center text-xs text-gray-400 pb-2">
-          Sincronizado a cada 5 min · Sem custo de API · Dr. Danilo Matsunaga © 2026
+          Sincronizado a cada 5 min · Dr. Danilo Matsunaga © 2026
         </p>
       </main>
     </div>
