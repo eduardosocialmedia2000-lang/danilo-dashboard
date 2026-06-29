@@ -176,8 +176,8 @@ export default function Dashboard() {
     const receitaMeta = metaFiltered.reduce((s, r) => s + r.receitaCompras, 0)
     const cliques = metaFiltered.reduce((s, r) => s + r.cliques, 0)
     const impressoes = metaFiltered.reduce((s, r) => s + r.impressoes, 0)
-    // ROAS de consultas usa receita real do Kommo (valor_fechado), não a receita CAPI do Meta
-    const receitaKommo = m.receitaConsultas
+    // ROAS de consultas usa receita acumulada total do Kommo (todos os períodos)
+    const receitaKommo = mAll.receitaConsultas
     const roas = spend > 0 ? receitaKommo / spend : 0
     const cpl = m.totalLeads > 0 ? spend / m.totalLeads : 0
     const cpa = compras > 0 ? spend / compras : 0
@@ -207,7 +207,7 @@ export default function Dashboard() {
       .sort((a, b) => b.spend - a.spend)
 
     return { spend, compras, receitaMeta, receitaKommo, cliques, impressoes, roas, cpl, cpa, ctr, spendDia, campanhas }
-  }, [metaFiltered, m.totalLeads, m.receitaConsultas])
+  }, [metaFiltered, m.totalLeads, mAll.receitaConsultas])
 
   const pipelineTop = topWithOthers(mAll.porPipeline)
   const etapaTop = mAll.porEtapa.slice(0, 8)
