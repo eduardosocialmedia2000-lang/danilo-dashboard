@@ -11,11 +11,13 @@ export interface LeadRaw {
   ultimaAtualizacao: string
   utmSource: string
   utmCampaign: string
+  valorFechado?: number
 }
 
 export interface Lead extends Omit<LeadRaw, 'dataEntrada' | 'ultimaAtualizacao'> {
   dataEntrada: Date
   ultimaAtualizacao: Date
+  valorFechado: number
 }
 
 export interface VendaRaw {
@@ -36,7 +38,7 @@ export interface Venda extends Omit<VendaRaw, 'data'> {
 }
 
 export function parseLead(raw: LeadRaw): Lead {
-  return { ...raw, dataEntrada: new Date(raw.dataEntrada), ultimaAtualizacao: new Date(raw.ultimaAtualizacao) }
+  return { ...raw, dataEntrada: new Date(raw.dataEntrada), ultimaAtualizacao: new Date(raw.ultimaAtualizacao), valorFechado: raw.valorFechado ?? 0 }
 }
 
 export function parseVenda(raw: VendaRaw): Venda {
@@ -91,6 +93,7 @@ export interface Metrics {
   ticketMedio: number
   taxaConversao: number
   vendasPorFonte: { name: string; value: number; receita: number }[]
+  receitaConsultas: number
 }
 
 function toArr(m: Record<string, number>) {
@@ -168,6 +171,9 @@ export function computeMetrics(leads: Lead[], vendas: Venda[], now = new Date())
       vendas: diaVendasMap[k] || 0,
     }))
 
+  // Receita real de consultas: soma valor_fechado dos leads fechados (Kommo price)
+  const receitaConsultas = leads.reduce((s, l) => s + (l.valorFechado ?? 0), 0)
+
   return {
     totalLeads: total,
     leadsHoje, leadsSemana, leadsMes,
@@ -189,6 +195,7 @@ export function computeMetrics(leads: Lead[], vendas: Venda[], now = new Date())
     vendasPorFonte: Object.entries(fonteVendasMap)
       .sort(([, a], [, b]) => b.count - a.count)
       .map(([name, d]) => ({ name, value: d.count, receita: d.receita })),
+    receitaConsultas,
   }
 }
 

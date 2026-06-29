@@ -15,6 +15,7 @@ export interface Lead {
   ultimaAtualizacao: Date
   utmSource: string
   utmCampaign: string
+  valorFechado: number
 }
 
 
@@ -50,6 +51,7 @@ function parseLeadRows(rows: unknown[][]): Lead[] {
       ultimaAtualizacao: parseDate(get(7)),
       utmSource: get(8),
       utmCampaign: get(9),
+      valorFechado: 0,
     })
   }
   return leads
@@ -106,6 +108,10 @@ function rowsToLeads(rows: { c?: (GvizCell | null)[] }[]): Lead[] {
     if (!/^\d{7,10}$/.test(idRaw)) continue
     // Kommo_Leads: lead_id(0), created_at(1), nome(2), stage_name(3), pipeline_name(4),
     //              utm_source(5), utm_campaign(6), cidade(7), fechado(8), valor_fechado(9)
+    const valorRaw = cells[9]
+    const valorFechado = valorRaw
+      ? (typeof valorRaw.v === 'number' ? valorRaw.v : parseFloat(String(valorRaw.v ?? '0')) || 0)
+      : 0
     leads.push({
       id: idRaw,
       nome: getStr(2),
@@ -117,6 +123,7 @@ function rowsToLeads(rows: { c?: (GvizCell | null)[] }[]): Lead[] {
       ultimaAtualizacao: parseGvizDate(cells[1]),
       utmSource: getStr(5),
       utmCampaign: getStr(6),
+      valorFechado,
     })
   }
   return leads

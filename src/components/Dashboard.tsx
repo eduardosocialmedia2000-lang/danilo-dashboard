@@ -170,7 +170,9 @@ export default function Dashboard() {
     const receitaMeta = metaFiltered.reduce((s, r) => s + r.receitaCompras, 0)
     const cliques = metaFiltered.reduce((s, r) => s + r.cliques, 0)
     const impressoes = metaFiltered.reduce((s, r) => s + r.impressoes, 0)
-    const roas = spend > 0 ? receitaMeta / spend : 0
+    // ROAS de consultas usa receita real do Kommo (valor_fechado), não a receita CAPI do Meta
+    const receitaKommo = m.receitaConsultas
+    const roas = spend > 0 ? receitaKommo / spend : 0
     const cpl = m.totalLeads > 0 ? spend / m.totalLeads : 0
     const cpa = compras > 0 ? spend / compras : 0
     const ctr = impressoes > 0 ? (cliques / impressoes) * 100 : 0
@@ -198,8 +200,8 @@ export default function Dashboard() {
       .filter(c => c.spend > 0)
       .sort((a, b) => b.spend - a.spend)
 
-    return { spend, compras, receitaMeta, cliques, impressoes, roas, cpl, cpa, ctr, spendDia, campanhas }
-  }, [metaFiltered, m.totalLeads])
+    return { spend, compras, receitaMeta, receitaKommo, cliques, impressoes, roas, cpl, cpa, ctr, spendDia, campanhas }
+  }, [metaFiltered, m.totalLeads, m.receitaConsultas])
 
   const pipelineTop = topWithOthers(m.porPipeline)
   const etapaTop = m.porEtapa.slice(0, 8)
@@ -413,7 +415,7 @@ export default function Dashboard() {
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <KPICard title="Investimento Meta" value={fmtR(metaKpis.spend)} subtitle="Meta Ads no período" icon={<DollarSign className="w-4 h-4" />} color="green" />
                 <KPICard title="CPL" value={fmtR(metaKpis.cpl)} subtitle="Custo por lead" icon={<Users className="w-4 h-4" />} color="blue" />
-                <KPICard title="ROAS Consultas" value={`${metaKpis.roas.toFixed(2)}x`} subtitle={`Receita CAPI: ${fmtR(metaKpis.receitaMeta)}`} icon={<TrendingUp className="w-4 h-4" />} color="purple" />
+                <KPICard title="ROAS Consultas" value={`${metaKpis.roas.toFixed(2)}x`} subtitle={`Receita Kommo: ${fmtR(metaKpis.receitaKommo)}`} icon={<TrendingUp className="w-4 h-4" />} color="purple" />
                 <KPICard title="CTR" value={`${metaKpis.ctr.toFixed(2)}%`} subtitle={`${metaKpis.cliques.toLocaleString('pt-BR')} cliques`} icon={<Percent className="w-4 h-4" />} color="amber" />
               </div>
             )}
@@ -561,7 +563,7 @@ export default function Dashboard() {
           <>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <KPICard title="Investimento" value={fmtR(metaKpis.spend)} subtitle="Meta Ads no período" icon={<DollarSign className="w-4 h-4" />} color="green" />
-              <KPICard title="ROAS" value={`${metaKpis.roas.toFixed(2)}x`} subtitle={`Receita CAPI: ${fmtR(metaKpis.receitaMeta)}`} icon={<TrendingUp className="w-4 h-4" />} color="blue" />
+              <KPICard title="ROAS" value={`${metaKpis.roas.toFixed(2)}x`} subtitle={`Receita Kommo: ${fmtR(metaKpis.receitaKommo)}`} icon={<TrendingUp className="w-4 h-4" />} color="blue" />
               <KPICard title="CPL" value={fmtR(metaKpis.cpl)} subtitle="Custo por lead" icon={<Users className="w-4 h-4" />} color="purple" />
               <KPICard title="CTR" value={`${metaKpis.ctr.toFixed(2)}%`} subtitle={`${metaKpis.compras} compras via CAPI`} icon={<Percent className="w-4 h-4" />} color="amber" />
             </div>
