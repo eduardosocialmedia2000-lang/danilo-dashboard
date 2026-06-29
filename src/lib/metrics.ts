@@ -119,11 +119,15 @@ export function computeMetrics(leads: Lead[], vendas: Venda[], now = new Date())
   const diaLeadsMap: Record<string, number> = {}
 
   for (const lead of leads) {
+    // Exclui leads já fechados/convertidos da distribuição de funil
+    const etapaLower = (lead.etapa || '').toLowerCase().trim()
+    const isWon = etapaLower === 'venda ganha' || lead.status === 'TRUE'
+
     const pipeline = lead.pipeline || 'Sem pipeline'
-    pipelineMap[pipeline] = (pipelineMap[pipeline] || 0) + 1
+    if (!isWon) pipelineMap[pipeline] = (pipelineMap[pipeline] || 0) + 1
 
     const etapa = lead.etapa?.trim()
-    if (etapa && ETAPA_VALIDA.test(etapa)) etapaMap[etapa] = (etapaMap[etapa] || 0) + 1
+    if (!isWon && etapa && ETAPA_VALIDA.test(etapa)) etapaMap[etapa] = (etapaMap[etapa] || 0) + 1
 
     fonteMap[normalizeFonte(lead.utmSource || '')] = (fonteMap[normalizeFonte(lead.utmSource || '')] || 0) + 1
 
