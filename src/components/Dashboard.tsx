@@ -426,6 +426,46 @@ export default function Dashboard() {
               </div>
             )}
 
+            {/* Receita por Origem */}
+            {mAll.receitaConsultas > 0 && (
+              <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+                <div className="flex items-center justify-between mb-1">
+                  <h2 className="text-sm font-semibold text-gray-900">Receita por Origem</h2>
+                  <span className="text-sm font-bold text-emerald-600">{fmtR(mAll.receitaConsultas)}</span>
+                </div>
+                <p className="text-xs text-gray-400 mb-4">Faturamento acumulado de consultas · baseado no utm_source do Kommo</p>
+                {mAll.receitaPorOrigem.length === 0 ? (
+                  <p className="text-xs text-amber-500">Nenhum lead com utm_source preenchido ainda. Os novos leads virão com origem automaticamente a partir de agora.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {mAll.receitaPorOrigem.map((o, i) => {
+                      const pct = mAll.receitaConsultas > 0 ? (o.receita / mAll.receitaConsultas) * 100 : 0
+                      return (
+                        <div key={i}>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-sm font-medium text-gray-700">{o.name}</span>
+                            <div className="flex items-center gap-3">
+                              <span className="text-xs text-gray-400">{o.leads} {o.leads === 1 ? 'consulta' : 'consultas'}</span>
+                              <span className="text-sm font-semibold text-gray-900">{fmtR(o.receita)}</span>
+                              <span className="text-xs font-medium text-emerald-600 w-10 text-right">{pct.toFixed(0)}%</span>
+                            </div>
+                          </div>
+                          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                            <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${pct}%` }} />
+                          </div>
+                        </div>
+                      )
+                    })}
+                    {mAll.receitaPorOrigem.length === 0 && (
+                      <div className="text-center py-4 text-xs text-gray-400">
+                        Sem leads com origem identificada ainda
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Pipeline + Etapas */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
               <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">

@@ -94,6 +94,8 @@ export interface Metrics {
   taxaConversao: number
   vendasPorFonte: { name: string; value: number; receita: number }[]
   receitaConsultas: number
+  // Receita por origem (utm_source)
+  receitaPorOrigem: { name: string; receita: number; leads: number }[]
 }
 
 function toArr(m: Record<string, number>) {
@@ -178,6 +180,19 @@ export function computeMetrics(leads: Lead[], vendas: Venda[], now = new Date())
   // Receita real de consultas: soma valor_fechado dos leads fechados (Kommo price)
   const receitaConsultas = leads.reduce((s, l) => s + (l.valorFechado ?? 0), 0)
 
+  // Receita por origem (utm_source) — apenas leads com valor
+  const origemMap: Record<string, { receita: number; leads: number }> = {}
+  for (const lead of leads) {
+    if ((lead.valorFechado ?? 0) <= 0) continue
+    const origem = normalizeFonte(lead.utmSource || '') || 'Orgânico / Direto'
+    if (!origemMap[origem]) origemMap[origem] = { receita: 0, leads: 0 }
+    origemMap[origem].receita += lead.valorFechado ?? 0
+    origemMap[origem].leads += 1
+  }
+  const receitaPorOrigem = Object.entries(origemMap)
+    .sort(([, a], [, b]) => b.receita - a.receita)
+    .map(([name, d]) => ({ name, receita: d.receita, leads: d.leads }))
+
   return {
     totalLeads: total,
     leadsHoje, leadsSemana, leadsMes,
@@ -200,6 +215,7 @@ export function computeMetrics(leads: Lead[], vendas: Venda[], now = new Date())
       .sort(([, a], [, b]) => b.count - a.count)
       .map(([name, d]) => ({ name, value: d.count, receita: d.receita })),
     receitaConsultas,
+    receitaPorOrigem,
   }
 }
 
