@@ -132,6 +132,12 @@ export default function Dashboard() {
 
   const m = useMemo(() => computeMetrics(filtered.leads, filtered.vendas), [filtered])
 
+  // Posição atual no funil: usa TODOS os leads sem filtro de data (onde estão agora)
+  const mAll = useMemo(() => computeMetrics(
+    filter.pipeline !== 'todos' ? allLeads.filter(l => l.pipeline === filter.pipeline) : allLeads,
+    allVendas
+  ), [allLeads, allVendas, filter.pipeline])
+
   const pipelineOptions = useMemo(
     () => computeMetrics(allLeads, allVendas).pipelines.map(p => ({ label: p, value: p })),
     [allLeads, allVendas]
@@ -203,8 +209,8 @@ export default function Dashboard() {
     return { spend, compras, receitaMeta, receitaKommo, cliques, impressoes, roas, cpl, cpa, ctr, spendDia, campanhas }
   }, [metaFiltered, m.totalLeads, m.receitaConsultas])
 
-  const pipelineTop = topWithOthers(m.porPipeline)
-  const etapaTop = m.porEtapa.slice(0, 8)
+  const pipelineTop = topWithOthers(mAll.porPipeline)
+  const etapaTop = mAll.porEtapa.slice(0, 8)
   const isFiltered = filter.dateRange !== 'tudo' || filter.pipeline !== 'todos'
 
   if (loading) return (
