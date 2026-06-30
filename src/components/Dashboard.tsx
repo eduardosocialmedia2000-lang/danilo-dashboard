@@ -516,8 +516,8 @@ export default function Dashboard() {
               <KPICard title="Total de Leads" value={m.totalLeads.toLocaleString('pt-BR')} subtitle="No período" icon={<Users className="w-4 h-4" />} color="green" />
               <KPICard title="Leads Hoje" value={m.leadsHoje} subtitle="Desde meia-noite" icon={<Calendar className="w-4 h-4" />} color="blue" />
               <KPICard
-                title="Faturamento Kommo"
-                value={fmtR(m.receitaConsultas)}
+                title="Receita Total CRM"
+                value={fmtR(mReceita.receitaTotalCRM)}
                 subtitle="Valor fechado no período"
                 icon={<DollarSign className="w-4 h-4" />}
                 color="purple"
@@ -536,25 +536,25 @@ export default function Dashboard() {
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <KPICard title="Investimento Meta" value={fmtR(metaKpis.spend)} subtitle="Meta Ads no período" icon={<DollarSign className="w-4 h-4" />} color="green" />
                 <KPICard title="CPL" value={fmtR(metaKpis.cpl)} subtitle="Custo por lead" icon={<Users className="w-4 h-4" />} color="blue" />
-                <KPICard title="ROAS Consultas" value={`${metaKpis.roas.toFixed(2)}x`} subtitle={`Receita Kommo: ${fmtR(metaKpis.receitaKommo)}`} icon={<TrendingUp className="w-4 h-4" />} color="purple" />
+                <KPICard title="ROAS CRM" value={`${metaKpis.roas.toFixed(2)}x`} subtitle={`Receita CRM: ${fmtR(mReceita.receitaTotalCRM)}`} icon={<TrendingUp className="w-4 h-4" />} color="purple" />
                 <KPICard title="CTR" value={`${metaKpis.ctr.toFixed(2)}%`} subtitle={`${metaKpis.cliques.toLocaleString('pt-BR')} cliques`} icon={<Percent className="w-4 h-4" />} color="amber" />
               </div>
             )}
 
             {/* Receita por Origem */}
-            {m.receitaConsultas > 0 && (
+            {mReceita.receitaTotalCRM > 0 && (
               <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
                 <div className="flex items-center justify-between mb-1">
                   <h2 className="text-sm font-semibold text-gray-900">Receita por Origem</h2>
-                  <span className="text-sm font-bold text-emerald-600">{fmtR(m.receitaConsultas)}</span>
+                  <span className="text-sm font-bold text-emerald-600">{fmtR(mReceita.receitaTotalCRM)}</span>
                 </div>
                 <p className="text-xs text-gray-400 mb-4">Faturamento de consultas no período · baseado no utm_source do Kommo</p>
-                {m.receitaPorOrigem.length === 0 ? (
+                {mReceita.receitaPorOrigem.length === 0 ? (
                   <p className="text-xs text-amber-500">Nenhum lead com utm_source preenchido ainda. Os novos leads virão com origem automaticamente a partir de agora.</p>
                 ) : (
                   <div className="space-y-3">
-                    {m.receitaPorOrigem.map((o, i) => {
-                      const pct = m.receitaConsultas > 0 ? (o.receita / m.receitaConsultas) * 100 : 0
+                    {mReceita.receitaPorOrigem.map((o, i) => {
+                      const pct = mReceita.receitaTotalCRM > 0 ? (o.receita / mReceita.receitaTotalCRM) * 100 : 0
                       return (
                         <div key={i}>
                           <div className="flex items-center justify-between mb-1">
