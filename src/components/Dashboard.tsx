@@ -475,19 +475,19 @@ export default function Dashboard() {
             )}
 
             {/* Receita por Origem */}
-            {mAll.receitaConsultas > 0 && (
+            {m.receitaConsultas > 0 && (
               <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
                 <div className="flex items-center justify-between mb-1">
                   <h2 className="text-sm font-semibold text-gray-900">Receita por Origem</h2>
-                  <span className="text-sm font-bold text-emerald-600">{fmtR(mAll.receitaConsultas)}</span>
+                  <span className="text-sm font-bold text-emerald-600">{fmtR(m.receitaConsultas)}</span>
                 </div>
-                <p className="text-xs text-gray-400 mb-4">Faturamento acumulado de consultas · baseado no utm_source do Kommo</p>
-                {mAll.receitaPorOrigem.length === 0 ? (
+                <p className="text-xs text-gray-400 mb-4">Faturamento de consultas no período · baseado no utm_source do Kommo</p>
+                {m.receitaPorOrigem.length === 0 ? (
                   <p className="text-xs text-amber-500">Nenhum lead com utm_source preenchido ainda. Os novos leads virão com origem automaticamente a partir de agora.</p>
                 ) : (
                   <div className="space-y-3">
-                    {mAll.receitaPorOrigem.map((o, i) => {
-                      const pct = mAll.receitaConsultas > 0 ? (o.receita / mAll.receitaConsultas) * 100 : 0
+                    {m.receitaPorOrigem.map((o, i) => {
+                      const pct = m.receitaConsultas > 0 ? (o.receita / m.receitaConsultas) * 100 : 0
                       return (
                         <div key={i}>
                           <div className="flex items-center justify-between mb-1">
