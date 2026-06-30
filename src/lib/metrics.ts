@@ -94,6 +94,10 @@ export interface Metrics {
   taxaConversao: number
   vendasPorFonte: { name: string; value: number; receita: number }[]
   receitaConsultas: number
+  // Receita total de todos os pipelines no período
+  receitaTotalCRM: number
+  // Receita por pipeline (todos os funis)
+  receitaPorPipeline: { name: string; receita: number; leads: number }[]
   // Receita por origem (utm_source)
   receitaPorOrigem: { name: string; receita: number; leads: number }[]
   // Vendas por produto
@@ -184,6 +188,22 @@ export function computeMetrics(leads: Lead[], vendas: Venda[], now = new Date())
   // Receita real de consultas: soma valor_fechado dos leads fechados (Kommo price)
   const receitaConsultas = leads.reduce((s, l) => s + (l.valorFechado ?? 0), 0)
 
+  // Receita total CRM: soma valorFechado de TODOS os pipelines no período
+  const receitaTotalCRM = leads.reduce((s, l) => s + (l.valorFechado ?? 0), 0)
+
+  // Receita por pipeline (todos os funis)
+  const pipelineReceitaMap: Record<string, { receita: number; leads: number }> = {}
+  for (const lead of leads) {
+    if ((lead.valorFechado ?? 0) <= 0) continue
+    const pipe = lead.pipeline || 'Sem pipeline'
+    if (!pipelineReceitaMap[pipe]) pipelineReceitaMap[pipe] = { receita: 0, leads: 0 }
+    pipelineReceitaMap[pipe].receita += lead.valorFechado ?? 0
+    pipelineReceitaMap[pipe].leads += 1
+  }
+  const receitaPorPipeline = Object.entries(pipelineReceitaMap)
+    .sort(([, a], [, b]) => b.receita - a.receita)
+    .map(([name, d]) => ({ name, receita: d.receita, leads: d.leads }))
+
   // Receita por origem (utm_source) — apenas leads com valor
   const origemMap: Record<string, { receita: number; leads: number }> = {}
   for (const lead of leads) {
@@ -250,6 +270,8 @@ export function computeMetrics(leads: Lead[], vendas: Venda[], now = new Date())
       .sort(([, a], [, b]) => b.count - a.count)
       .map(([name, d]) => ({ name, value: d.count, receita: d.receita })),
     receitaConsultas,
+    receitaTotalCRM,
+    receitaPorPipeline,
     receitaPorOrigem,
     vendasPorProduto,
     vendasPorCanalEProduto,

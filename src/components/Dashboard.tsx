@@ -177,8 +177,8 @@ export default function Dashboard() {
     const cliques = metaFiltered.reduce((s, r) => s + r.cliques, 0)
     const impressoes = metaFiltered.reduce((s, r) => s + r.impressoes, 0)
 
-    // Receita do Kommo no período filtrado (leads meta_ads com valor_fechado > 0)
-    const receitaKommo = m.receitaConsultas
+    // Receita do Kommo no período filtrado — usa receita total CRM (todos os funis)
+    const receitaKommo = m.receitaTotalCRM
     const roas = spend > 0 && receitaKommo > 0 ? receitaKommo / spend : 0
     const cpl = m.totalLeads > 0 ? spend / m.totalLeads : 0
     const cpa = compras > 0 ? spend / compras : 0
@@ -353,16 +353,16 @@ export default function Dashboard() {
               <KPICard title="Total de Leads" value={m.totalLeads.toLocaleString('pt-BR')} subtitle="No período" icon={<Users className="w-4 h-4" />} color="green" />
               <KPICard title="Leads Hoje" value={m.leadsHoje} subtitle="Desde meia-noite" icon={<Calendar className="w-4 h-4" />} color="blue" />
               <KPICard
-                title="Faturamento Consultas"
-                value={fmtR(m.receitaConsultas)}
-                subtitle={m.faturamentoTotal > 0 ? `+ ${fmtR(m.faturamentoTotal)} infoproduto` : 'Kommo · valor_fechado'}
+                title="Receita Total CRM"
+                value={fmtR(m.receitaTotalCRM)}
+                subtitle={m.faturamentoTotal > 0 ? `+ ${fmtR(m.faturamentoTotal)} infoproduto` : 'Todos os funis · Kommo'}
                 icon={<DollarSign className="w-4 h-4" />}
                 color="purple"
               />
               <KPICard
                 title={metaKpis.roas > 0 ? `ROAS ${metaKpis.roas.toFixed(2)}x` : 'Investimento Meta'}
                 value={fmtR(metaKpis.spend)}
-                subtitle={metaKpis.roas > 0 ? `Receita Kommo: ${fmtR(metaKpis.receitaKommo)}` : `CPL ${fmtR(metaKpis.cpl)}`}
+                subtitle={metaKpis.roas > 0 ? `Receita CRM: ${fmtR(m.receitaTotalCRM)}` : `CPL ${fmtR(metaKpis.cpl)}`}
                 icon={<TrendingUp className="w-4 h-4" />}
                 color="amber"
               />
@@ -391,6 +391,66 @@ export default function Dashboard() {
                     <Line type="monotone" dataKey="vendas" name="vendas" stroke="#3b82f6" strokeWidth={2.5} dot={{ fill: '#3b82f6', r: 2, strokeWidth: 0 }} activeDot={{ r: 4, strokeWidth: 0 }} />
                   </LineChart>
                 </ResponsiveContainer>
+              </div>
+            )}
+
+            {/* Receita por Funil (todos os pipelines) */}
+            {m.receitaTotalCRM > 0 && (
+              <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+                <div className="flex items-center justify-between mb-1">
+                  <div>
+                    <h2 className="text-sm font-semibold text-gray-900">Receita por Funil</h2>
+                    <p className="text-xs text-gray-400 mt-0.5">Todos os pipelines · valor fechado no Kommo</p>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm font-bold text-emerald-600">{fmtR(m.receitaTotalCRM)}</div>
+                    {metaKpis.spend > 0 && (
+                      <div className="text-xs text-gray-400 mt-0.5">
+                        ROAS real: <span className="font-semibold text-purple-600">{(m.receitaTotalCRM / metaKpis.spend).toFixed(2)}x</span>
+                        {m.faturamentoTotal > 0 && <span className="ml-2">(+ {fmtR(m.faturamentoTotal)} infoproduto)</span>}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="mt-4 space-y-3">
+                  {m.receitaPorPipeline.map((p, i) => {
+                    const pct = m.receitaTotalCRM > 0 ? (p.receita / m.receitaTotalCRM) * 100 : 0
+                    return (
+                      <div key={p.name}>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-sm font-medium text-gray-700">{p.name}</span>
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs text-gray-400">{p.leads} {p.leads === 1 ? 'lead' : 'leads'}</span>
+                            <span className="text-sm font-semibold text-gray-900">{fmtR(p.receita)}</span>
+                            <span className="text-xs font-medium text-emerald-600 w-10 text-right">{pct.toFixed(0)}%</span>
+                          </div>
+                        </div>
+                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                          <div className="h-full rounded-full transition-all duration-500"
+                            style={{ width: `${pct}%`, backgroundColor: PALETTE[i % PALETTE.length] }} />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+                {metaKpis.spend > 0 && (
+                  <div className="mt-4 pt-4 border-t border-gray-100 grid grid-cols-3 gap-4">
+                    <div className="text-center">
+                      <div className="text-xs text-gray-400 mb-0.5">Investimento Meta</div>
+                      <div className="text-sm font-semibold text-gray-900">{fmtR(metaKpis.spend)}</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-xs text-gray-400 mb-0.5">Receita CRM</div>
+                      <div className="text-sm font-semibold text-emerald-600">{fmtR(m.receitaTotalCRM)}</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-xs text-gray-400 mb-0.5">ROAS</div>
+                      <div className={`text-sm font-bold ${(m.receitaTotalCRM / metaKpis.spend) >= 1 ? 'text-emerald-600' : 'text-red-500'}`}>
+                        {(m.receitaTotalCRM / metaKpis.spend).toFixed(2)}x
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
