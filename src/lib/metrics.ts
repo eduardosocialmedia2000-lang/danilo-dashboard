@@ -96,6 +96,10 @@ export interface Metrics {
   receitaConsultas: number
   // Receita por origem (utm_source)
   receitaPorOrigem: { name: string; receita: number; leads: number }[]
+  // Vendas por produto
+  vendasPorProduto: { nome: string; count: number; receita: number; hoje: number; mes: number }[]
+  // Vendas por canal+produto (cruzamento)
+  vendasPorCanalEProduto: { canal: string; produto: string; count: number; receita: number }[]
 }
 
 function toArr(m: Record<string, number>) {
@@ -193,6 +197,37 @@ export function computeMetrics(leads: Lead[], vendas: Venda[], now = new Date())
     .sort(([, a], [, b]) => b.receita - a.receita)
     .map(([name, d]) => ({ name, receita: d.receita, leads: d.leads }))
 
+  // Vendas por produto
+  const produtoMap: Record<string, { count: number; receita: number; hoje: number; mes: number }> = {}
+  for (const venda of vendas) {
+    const prod = venda.produto?.trim() || 'Sem produto'
+    if (!produtoMap[prod]) produtoMap[prod] = { count: 0, receita: 0, hoje: 0, mes: 0 }
+    produtoMap[prod].count++
+    produtoMap[prod].receita += venda.valor
+    if (venda.data >= startOfDay) produtoMap[prod].hoje++
+    if (venda.data >= startOfMonth) produtoMap[prod].mes++
+  }
+  const vendasPorProduto = Object.entries(produtoMap)
+    .sort(([, a], [, b]) => b.receita - a.receita)
+    .map(([nome, d]) => ({ nome, ...d }))
+
+  // Cruzamento canal × produto
+  const canalProdutoMap: Record<string, { count: number; receita: number }> = {}
+  for (const venda of vendas) {
+    const canal = normalizeFonte(venda.origem || '')
+    const prod = venda.produto?.trim() || 'Sem produto'
+    const key = `${canal}|||${prod}`
+    if (!canalProdutoMap[key]) canalProdutoMap[key] = { count: 0, receita: 0 }
+    canalProdutoMap[key].count++
+    canalProdutoMap[key].receita += venda.valor
+  }
+  const vendasPorCanalEProduto = Object.entries(canalProdutoMap)
+    .sort(([, a], [, b]) => b.receita - a.receita)
+    .map(([key, d]) => {
+      const [canal, produto] = key.split('|||')
+      return { canal, produto, ...d }
+    })
+
   return {
     totalLeads: total,
     leadsHoje, leadsSemana, leadsMes,
@@ -216,6 +251,8 @@ export function computeMetrics(leads: Lead[], vendas: Venda[], now = new Date())
       .map(([name, d]) => ({ name, value: d.count, receita: d.receita })),
     receitaConsultas,
     receitaPorOrigem,
+    vendasPorProduto,
+    vendasPorCanalEProduto,
   }
 }
 

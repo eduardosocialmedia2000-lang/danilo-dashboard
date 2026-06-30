@@ -580,6 +580,7 @@ export default function Dashboard() {
         {/* ── ABA: INFOPRODUTO ── */}
         {activeTab === 'infoproduto' && (
           <>
+            {/* KPIs gerais */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <KPICard title="Faturamento Total" value={fmtR(m.faturamentoTotal)} subtitle={`${m.totalVendas} vendas no período`} icon={<DollarSign className="w-4 h-4" />} color="green" />
               <KPICard title="Faturamento Hoje" value={fmtR(m.faturamentoHoje)} subtitle={`${m.vendasHoje} vendas`} icon={<ShoppingCart className="w-4 h-4" />} color="blue" />
@@ -587,32 +588,73 @@ export default function Dashboard() {
               <KPICard title="Ticket Médio" value={fmtR(m.ticketMedio)} subtitle={`Conversão: ${m.taxaConversao.toFixed(2)}%`} icon={<Percent className="w-4 h-4" />} color="amber" />
             </div>
 
-            {/* Origem das vendas */}
-            <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-              <h2 className="text-sm font-semibold text-gray-900 mb-1">Vendas por Canal</h2>
-              <p className="text-xs text-gray-400 mb-5">Faturamento por origem (utm_source)</p>
-              {m.vendasPorFonte.length === 0 ? (
-                <div className="flex items-center justify-center h-40 text-gray-400 text-sm">Sem vendas no período</div>
-              ) : (
-                <div className="space-y-4">
-                  {m.vendasPorFonte.map((item, i) => {
-                    const maxReceita = Math.max(...m.vendasPorFonte.map(v => v.receita))
-                    const pct = maxReceita > 0 ? (item.receita / maxReceita) * 100 : 0
-                    return (
-                      <div key={item.name}>
-                        <div className="flex justify-between text-xs mb-1.5">
-                          <span className="font-semibold text-gray-800">{item.name || 'Orgânico'}</span>
-                          <span className="text-gray-500">{item.value} vendas · <span className="font-semibold text-gray-800">{fmtR(item.receita)}</span></span>
+            {/* KPIs por produto */}
+            {m.vendasPorProduto.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Por Produto</p>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {m.vendasPorProduto.map((p, i) => (
+                    <div key={p.nome} className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+                      <div className="flex items-center gap-2 mb-4">
+                        <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: PALETTE[i % PALETTE.length] }} />
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider truncate">{p.nome}</p>
+                      </div>
+                      <div className="grid grid-cols-3 gap-4 text-center">
+                        <div>
+                          <p className="text-2xl font-bold text-gray-900">{p.count}</p>
+                          <p className="text-xs text-gray-400 mt-0.5">Total</p>
+                          <p className="text-xs font-medium text-emerald-600 mt-1">{fmtR(p.receita)}</p>
                         </div>
-                        <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
-                          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: PALETTE[i % PALETTE.length] }} />
+                        <div>
+                          <p className="text-2xl font-bold text-gray-900">{p.hoje}</p>
+                          <p className="text-xs text-gray-400 mt-0.5">Hoje</p>
+                        </div>
+                        <div>
+                          <p className="text-2xl font-bold text-gray-900">{p.mes}</p>
+                          <p className="text-xs text-gray-400 mt-0.5">Este mês</p>
                         </div>
                       </div>
-                    )
-                  })}
+                    </div>
+                  ))}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
+
+            {/* Cruzamento Canal × Produto */}
+            {m.vendasPorCanalEProduto.length > 0 && (
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="p-5 border-b border-gray-100">
+                  <h2 className="text-sm font-semibold text-gray-900">Canal × Produto</h2>
+                  <p className="text-xs text-gray-400 mt-0.5">De qual canal veio cada produto</p>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="bg-gray-50 text-gray-400 uppercase tracking-wider">
+                        <th className="text-left px-4 py-3 font-medium">Canal</th>
+                        <th className="text-left px-4 py-3 font-medium">Produto</th>
+                        <th className="text-right px-4 py-3 font-medium">Vendas</th>
+                        <th className="text-right px-4 py-3 font-medium">Receita</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {m.vendasPorCanalEProduto.map((row, i) => (
+                        <tr key={i} className="border-t border-gray-50 hover:bg-gray-50 transition-colors">
+                          <td className="px-4 py-3">
+                            <span className="px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: PALETTE[i % PALETTE.length] + '20', color: PALETTE[i % PALETTE.length] }}>
+                              {row.canal || 'Orgânico'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-gray-700 font-medium max-w-[240px] truncate">{row.produto}</td>
+                          <td className="px-4 py-3 text-right font-semibold text-gray-800">{row.count}</td>
+                          <td className="px-4 py-3 text-right font-semibold text-emerald-600">{fmtR(row.receita)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
 
             {/* Tabela de vendas recentes */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
@@ -625,8 +667,8 @@ export default function Dashboard() {
                   <thead>
                     <tr className="bg-gray-50 text-gray-400 uppercase tracking-wider">
                       <th className="text-left px-4 py-3 font-medium">Cliente</th>
+                      <th className="text-left px-4 py-3 font-medium">Produto</th>
                       <th className="text-left px-4 py-3 font-medium">Canal</th>
-                      <th className="text-left px-4 py-3 font-medium">Campanha</th>
                       <th className="text-left px-4 py-3 font-medium">Data</th>
                       <th className="text-right px-4 py-3 font-medium">Valor</th>
                     </tr>
@@ -635,12 +677,12 @@ export default function Dashboard() {
                     {filtered.vendas.slice().sort((a, b) => b.data.getTime() - a.data.getTime()).slice(0, 50).map((v, i) => (
                       <tr key={i} className="border-t border-gray-50 hover:bg-gray-50 transition-colors">
                         <td className="px-4 py-3 font-medium text-gray-700">{v.cliente || '—'}</td>
+                        <td className="px-4 py-3 text-gray-600 max-w-[160px] truncate">{v.produto || '—'}</td>
                         <td className="px-4 py-3 text-gray-500">
                           <span className="px-2 py-0.5 rounded-full text-xs font-medium" style={{ backgroundColor: PALETTE[i % PALETTE.length] + '20', color: PALETTE[i % PALETTE.length] }}>
                             {v.origem || 'orgânico'}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-gray-400 max-w-[200px] truncate">{v.campanha || '—'}</td>
                         <td className="px-4 py-3 text-gray-400">{v.data.toLocaleDateString('pt-BR')}</td>
                         <td className="px-4 py-3 text-right font-semibold text-emerald-600">{fmtR(v.valor)}</td>
                       </tr>
