@@ -13,7 +13,7 @@ import {
 import { KPICard } from './KPICard'
 import {
   type LeadRaw, type VendaRaw, type Lead, type Venda, type FilterState,
-  parseLead, parseVenda, computeMetrics, filterLeads, filterVendas,
+  parseLead, parseVenda, computeMetrics, filterLeads, filterLeadsReceita, filterVendas,
 } from '@/lib/metrics'
 import type { MetaAd } from '@/lib/sheets'
 
@@ -132,6 +132,13 @@ export default function Dashboard() {
 
   const m = useMemo(() => computeMetrics(filtered.leads, filtered.vendas), [filtered])
 
+  // Receita: filtra por ultimaAtualizacao (quando o price foi definido), não por dataEntrada
+  // Captura leads que entraram antes do período mas foram fechados dentro dele
+  const mReceita = useMemo(() => computeMetrics(
+    filterLeadsReceita(allLeads, filter),
+    filtered.vendas
+  ), [allLeads, filtered.vendas, filter])
+
   // Posição atual no funil: usa TODOS os leads sem filtro de data (onde estão agora)
   const mAll = useMemo(() => computeMetrics(
     filter.pipeline !== 'todos' ? allLeads.filter(l => l.pipeline === filter.pipeline) : allLeads,
@@ -177,8 +184,8 @@ export default function Dashboard() {
     const cliques = metaFiltered.reduce((s, r) => s + r.cliques, 0)
     const impressoes = metaFiltered.reduce((s, r) => s + r.impressoes, 0)
 
-    // Receita do Kommo no período filtrado — usa receita total CRM (todos os funis)
-    const receitaKommo = m.receitaTotalCRM
+    // Receita do Kommo no período filtrado — usa filterLeadsReceita (por ultimaAtualizacao)
+    const receitaKommo = mReceita.receitaTotalCRM
     const roas = spend > 0 && receitaKommo > 0 ? receitaKommo / spend : 0
     const cpl = m.totalLeads > 0 ? spend / m.totalLeads : 0
     const cpa = compras > 0 ? spend / compras : 0
@@ -354,7 +361,7 @@ export default function Dashboard() {
               <KPICard title="Leads Hoje" value={m.leadsHoje} subtitle="Desde meia-noite" icon={<Calendar className="w-4 h-4" />} color="blue" />
               <KPICard
                 title="Receita Total CRM"
-                value={fmtR(m.receitaTotalCRM)}
+                value={fmtR(mReceita.receitaTotalCRM)}
                 subtitle={m.faturamentoTotal > 0 ? `+ ${fmtR(m.faturamentoTotal)} infoproduto` : 'Todos os funis · Kommo'}
                 icon={<DollarSign className="w-4 h-4" />}
                 color="purple"
@@ -362,7 +369,7 @@ export default function Dashboard() {
               <KPICard
                 title={metaKpis.roas > 0 ? `ROAS ${metaKpis.roas.toFixed(2)}x` : 'Investimento Meta'}
                 value={fmtR(metaKpis.spend)}
-                subtitle={metaKpis.roas > 0 ? `Receita CRM: ${fmtR(m.receitaTotalCRM)}` : `CPL ${fmtR(metaKpis.cpl)}`}
+                subtitle={metaKpis.roas > 0 ? `Receita CRM: ${fmtR(mReceita.receitaTotalCRM)}` : `CPL ${fmtR(metaKpis.cpl)}`}
                 icon={<TrendingUp className="w-4 h-4" />}
                 color="amber"
               />
@@ -395,7 +402,7 @@ export default function Dashboard() {
             )}
 
             {/* Receita por Funil (todos os pipelines) */}
-            {m.receitaTotalCRM > 0 && (
+            {mReceita.receitaTotalCRM > 0 && (
               <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
                 <div className="flex items-center justify-between mb-1">
                   <div>
@@ -403,18 +410,18 @@ export default function Dashboard() {
                     <p className="text-xs text-gray-400 mt-0.5">Todos os pipelines · valor fechado no Kommo</p>
                   </div>
                   <div className="text-right">
-                    <div className="text-sm font-bold text-emerald-600">{fmtR(m.receitaTotalCRM)}</div>
+                    <div className="text-sm font-bold text-emerald-600">{fmtR(mReceita.receitaTotalCRM)}</div>
                     {metaKpis.spend > 0 && (
                       <div className="text-xs text-gray-400 mt-0.5">
-                        ROAS real: <span className="font-semibold text-purple-600">{(m.receitaTotalCRM / metaKpis.spend).toFixed(2)}x</span>
+                        ROAS real: <span className="font-semibold text-purple-600">{(mReceita.receitaTotalCRM / metaKpis.spend).toFixed(2)}x</span>
                         {m.faturamentoTotal > 0 && <span className="ml-2">(+ {fmtR(m.faturamentoTotal)} infoproduto)</span>}
                       </div>
                     )}
                   </div>
                 </div>
                 <div className="mt-4 space-y-3">
-                  {m.receitaPorPipeline.map((p, i) => {
-                    const pct = m.receitaTotalCRM > 0 ? (p.receita / m.receitaTotalCRM) * 100 : 0
+                  {mReceita.receitaPorPipeline.map((p, i) => {
+                    const pct = mReceita.receitaTotalCRM > 0 ? (p.receita / mReceita.receitaTotalCRM) * 100 : 0
                     return (
                       <div key={p.name}>
                         <div className="flex items-center justify-between mb-1">
@@ -441,12 +448,12 @@ export default function Dashboard() {
                     </div>
                     <div className="text-center">
                       <div className="text-xs text-gray-400 mb-0.5">Receita CRM</div>
-                      <div className="text-sm font-semibold text-emerald-600">{fmtR(m.receitaTotalCRM)}</div>
+                      <div className="text-sm font-semibold text-emerald-600">{fmtR(mReceita.receitaTotalCRM)}</div>
                     </div>
                     <div className="text-center">
                       <div className="text-xs text-gray-400 mb-0.5">ROAS</div>
-                      <div className={`text-sm font-bold ${(m.receitaTotalCRM / metaKpis.spend) >= 1 ? 'text-emerald-600' : 'text-red-500'}`}>
-                        {(m.receitaTotalCRM / metaKpis.spend).toFixed(2)}x
+                      <div className={`text-sm font-bold ${(mReceita.receitaTotalCRM / metaKpis.spend) >= 1 ? 'text-emerald-600' : 'text-red-500'}`}>
+                        {(mReceita.receitaTotalCRM / metaKpis.spend).toFixed(2)}x
                       </div>
                     </div>
                   </div>

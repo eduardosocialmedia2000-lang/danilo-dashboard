@@ -300,6 +300,20 @@ export function filterLeads(leads: Lead[], f: FilterState, now = new Date()): Le
   })
 }
 
+// Filtra leads para cálculo de receita usando ultimaAtualizacao (quando o price foi definido),
+// não dataEntrada — captura leads que entraram antes mas foram fechados no período.
+export function filterLeadsReceita(leads: Lead[], f: FilterState, now = new Date()): Lead[] {
+  const cutoff = getCutoff(f, now)
+  const end = f.dateRange === 'custom' && f.customEnd ? new Date(f.customEnd + 'T23:59:59') : null
+  return leads.filter(l => {
+    if ((l.valorFechado ?? 0) <= 0) return false
+    if (cutoff && l.ultimaAtualizacao < cutoff) return false
+    if (end && l.ultimaAtualizacao > end) return false
+    if (f.pipeline !== 'todos' && l.pipeline !== f.pipeline) return false
+    return true
+  })
+}
+
 export function filterVendas(vendas: Venda[], f: FilterState, now = new Date()): Venda[] {
   const cutoff = getCutoff(f, now)
   const end = f.dateRange === 'custom' && f.customEnd ? new Date(f.customEnd + 'T23:59:59') : null
