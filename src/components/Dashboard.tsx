@@ -201,9 +201,9 @@ export default function Dashboard() {
       .map(([data, valor]) => ({ data: data.slice(5).replace('-', '/'), valor }))
 
     // Receita por campanha: cruza utm_campaign dos leads fechados com campanhas do Meta Ads
+    // Usa filterLeadsReceita (ultimaAtualizacao) para capturar leads fechados no período mesmo que tenham entrado antes
     const receitaPorCampanha: Record<string, number> = {}
-    filtered.leads.forEach(l => {
-      if ((l.valorFechado ?? 0) <= 0) return
+    filterLeadsReceita(allLeads, filter).forEach(l => {
       const camp = (l.utmCampaign || '').trim()
       if (!camp) return
       receitaPorCampanha[camp] = (receitaPorCampanha[camp] || 0) + (l.valorFechado ?? 0)
@@ -238,7 +238,7 @@ export default function Dashboard() {
       .sort((a, b) => b.spend - a.spend)
 
     return { spend, compras, receitaMeta, receitaKommo, cliques, impressoes, roas, cpl, cpa, ctr, spendDia, campanhas }
-  }, [metaFiltered, m, filtered.leads])
+  }, [metaFiltered, mReceita, allLeads, filter])
 
   const pipelineTop = topWithOthers(mAll.porPipeline)
   const etapaTop = mAll.porEtapa.slice(0, 8)
