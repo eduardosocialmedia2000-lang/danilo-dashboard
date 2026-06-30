@@ -107,8 +107,9 @@ function rowsToLeads(rows: { c?: (GvizCell | null)[] }[]): Lead[] {
     const idRaw = getStr(0)
     if (!/^\d{7,10}$/.test(idRaw)) continue
     // Kommo_Leads: lead_id(0), created_at(1), nome(2), stage_name(3), pipeline_name(4),
-    //              utm_source(5), utm_campaign(6), cidade(7), fechado(8), valor_fechado(9)
-    const valorRaw = cells[9]
+    //              utm_source(5), utm_medium(6), utm_campaign(7), utm_content(8), cidade(9),
+    //              fechado(10), valor_fechado(11)
+    const valorRaw = cells[11]
     const valorFechado = valorRaw
       ? (typeof valorRaw.v === 'number' ? valorRaw.v : parseFloat(String(valorRaw.v ?? '0')) || 0)
       : 0
@@ -117,12 +118,12 @@ function rowsToLeads(rows: { c?: (GvizCell | null)[] }[]): Lead[] {
       nome: getStr(2),
       pipeline: getStr(4),
       etapa: getStr(3),
-      status: getStr(8),
-      cidade: getStr(7),
+      status: getStr(10),
+      cidade: getStr(9),
       dataEntrada: parseGvizDate(cells[1]),
       ultimaAtualizacao: parseGvizDate(cells[1]),
       utmSource: getStr(5),
-      utmCampaign: getStr(6),
+      utmCampaign: getStr(7),
       valorFechado,
     })
   }
@@ -136,7 +137,7 @@ async function fetchViaGviz(): Promise<Lead[]> {
   let offset = 0
 
   while (true) {
-    const tq = encodeURIComponent(`select A,B,C,D,E,F,G,H,I,J limit ${PAGE} offset ${offset}`)
+    const tq = encodeURIComponent(`select A,B,C,D,E,F,G,H,I,J,K,L limit ${PAGE} offset ${offset}`)
     // Lê Kommo_Leads (fonte principal) — fallback para Leads Consulta se não existir
     const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&sheet=${KOMMO_LEADS_SHEET}&headers=1&tq=${tq}`
     const res = await fetch(url, { cache: 'no-store' })

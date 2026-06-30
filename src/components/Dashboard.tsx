@@ -176,9 +176,10 @@ export default function Dashboard() {
     const receitaMeta = metaFiltered.reduce((s, r) => s + r.receitaCompras, 0)
     const cliques = metaFiltered.reduce((s, r) => s + r.cliques, 0)
     const impressoes = metaFiltered.reduce((s, r) => s + r.impressoes, 0)
-    // ROAS de consultas usa receita acumulada total do Kommo (todos os períodos)
-    const receitaKommo = mAll.receitaConsultas
-    const roas = spend > 0 ? receitaKommo / spend : 0
+
+    // Receita do Kommo no período filtrado (leads meta_ads com valor_fechado > 0)
+    const receitaKommo = m.receitaConsultas
+    const roas = spend > 0 && receitaKommo > 0 ? receitaKommo / spend : 0
     const cpl = m.totalLeads > 0 ? spend / m.totalLeads : 0
     const cpa = compras > 0 ? spend / compras : 0
     const ctr = impressoes > 0 ? (cliques / impressoes) * 100 : 0
@@ -192,22 +193,45 @@ export default function Dashboard() {
       .slice(-30)
       .map(([data, valor]) => ({ data: data.slice(5).replace('-', '/'), valor }))
 
-    const campanhaMap: Record<string, { spend: number; compras: number; receita: number; cliques: number }> = {}
+    // Receita por campanha: cruza utm_campaign dos leads fechados com campanhas do Meta Ads
+    const receitaPorCampanha: Record<string, number> = {}
+    filtered.leads.forEach(l => {
+      if ((l.valorFechado ?? 0) <= 0) return
+      const camp = (l.utmCampaign || '').trim()
+      if (!camp) return
+      receitaPorCampanha[camp] = (receitaPorCampanha[camp] || 0) + (l.valorFechado ?? 0)
+    })
+
+    const campanhaMap: Record<string, { spend: number; compras: number; receita: number; cliques: number; receitaKommo: number }> = {}
     metaFiltered.forEach(r => {
       const k = r.campanha || 'Sem campanha'
-      if (!campanhaMap[k]) campanhaMap[k] = { spend: 0, compras: 0, receita: 0, cliques: 0 }
+      if (!campanhaMap[k]) campanhaMap[k] = { spend: 0, compras: 0, receita: 0, cliques: 0, receitaKommo: 0 }
       campanhaMap[k].spend += r.spend
       campanhaMap[k].compras += r.compras
       campanhaMap[k].receita += r.receitaCompras
       campanhaMap[k].cliques += r.cliques
     })
+    // Injeta receita Kommo por campanha (match parcial: nome da campanha contém utm_campaign)
+    Object.entries(receitaPorCampanha).forEach(([utmCamp, receita]) => {
+      const match = Object.keys(campanhaMap).find(k =>
+        k.toLowerCase().includes(utmCamp.toLowerCase()) || utmCamp.toLowerCase().includes(k.toLowerCase())
+      )
+      if (match) campanhaMap[match].receitaKommo += receita
+    })
+
     const campanhas = Object.entries(campanhaMap)
-      .map(([nome, v]) => ({ nome, ...v, roas: v.spend > 0 ? v.receita / v.spend : 0 }))
+      .map(([nome, v]) => ({
+        nome,
+        ...v,
+        // Prioriza receita Kommo; fallback para receita do pixel Meta
+        roasKommo: v.spend > 0 && v.receitaKommo > 0 ? v.receitaKommo / v.spend : 0,
+        roas: v.spend > 0 ? (v.receitaKommo > 0 ? v.receitaKommo : v.receita) / v.spend : 0,
+      }))
       .filter(c => c.spend > 0)
       .sort((a, b) => b.spend - a.spend)
 
     return { spend, compras, receitaMeta, receitaKommo, cliques, impressoes, roas, cpl, cpa, ctr, spendDia, campanhas }
-  }, [metaFiltered, m.totalLeads, mAll.receitaConsultas])
+  }, [metaFiltered, m, filtered.leads])
 
   const pipelineTop = topWithOthers(mAll.porPipeline)
   const etapaTop = mAll.porEtapa.slice(0, 8)
@@ -328,8 +352,20 @@ export default function Dashboard() {
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <KPICard title="Total de Leads" value={m.totalLeads.toLocaleString('pt-BR')} subtitle="No período" icon={<Users className="w-4 h-4" />} color="green" />
               <KPICard title="Leads Hoje" value={m.leadsHoje} subtitle="Desde meia-noite" icon={<Calendar className="w-4 h-4" />} color="blue" />
-              <KPICard title="Faturamento" value={fmtR(m.faturamentoTotal)} subtitle={`${m.totalVendas} vendas · ticket ${fmtR(m.ticketMedio)}`} icon={<DollarSign className="w-4 h-4" />} color="purple" />
-              <KPICard title="Investimento Meta" value={fmtR(metaKpis.spend)} subtitle={`CPL ${fmtR(metaKpis.cpl)}`} icon={<TrendingUp className="w-4 h-4" />} color="amber" />
+              <KPICard
+                title="Faturamento Consultas"
+                value={fmtR(m.receitaConsultas)}
+                subtitle={m.faturamentoTotal > 0 ? `+ ${fmtR(m.faturamentoTotal)} infoproduto` : 'Kommo · valor_fechado'}
+                icon={<DollarSign className="w-4 h-4" />}
+                color="purple"
+              />
+              <KPICard
+                title={metaKpis.roas > 0 ? `ROAS ${metaKpis.roas.toFixed(2)}x` : 'Investimento Meta'}
+                value={fmtR(metaKpis.spend)}
+                subtitle={metaKpis.roas > 0 ? `Receita Kommo: ${fmtR(metaKpis.receitaKommo)}` : `CPL ${fmtR(metaKpis.cpl)}`}
+                icon={<TrendingUp className="w-4 h-4" />}
+                color="amber"
+              />
             </div>
 
             {/* Gráfico leads + vendas por dia */}
@@ -412,8 +448,20 @@ export default function Dashboard() {
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <KPICard title="Total de Leads" value={m.totalLeads.toLocaleString('pt-BR')} subtitle="No período" icon={<Users className="w-4 h-4" />} color="green" />
               <KPICard title="Leads Hoje" value={m.leadsHoje} subtitle="Desde meia-noite" icon={<Calendar className="w-4 h-4" />} color="blue" />
-              <KPICard title="Esta Semana" value={m.leadsSemana} subtitle="Últimos 7 dias" icon={<TrendingUp className="w-4 h-4" />} color="purple" />
-              <KPICard title="Este Mês" value={m.leadsMes} subtitle={new Date().toLocaleDateString('pt-BR', { month: 'long' })} icon={<Users className="w-4 h-4" />} color="amber" />
+              <KPICard
+                title="Faturamento Kommo"
+                value={fmtR(m.receitaConsultas)}
+                subtitle="Valor fechado no período"
+                icon={<DollarSign className="w-4 h-4" />}
+                color="purple"
+              />
+              <KPICard
+                title={metaKpis.roas > 0 ? `ROAS ${metaKpis.roas.toFixed(2)}x` : 'Investimento Meta'}
+                value={fmtR(metaKpis.spend)}
+                subtitle={metaKpis.roas > 0 ? `Receita: ${fmtR(metaKpis.receitaKommo)}` : `CPL ${fmtR(metaKpis.cpl)}`}
+                icon={<TrendingUp className="w-4 h-4" />}
+                color="amber"
+              />
             </div>
 
             {/* Meta Ads KPIs */}
@@ -634,9 +682,17 @@ export default function Dashboard() {
             {/* Tabela campanhas */}
             {metaKpis.campanhas.length > 0 && (
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                <div className="p-5 border-b border-gray-100">
-                  <h2 className="text-sm font-semibold text-gray-900">Campanhas Ativas</h2>
-                  <p className="text-xs text-gray-400 mt-0.5">Ordenado por investimento</p>
+                <div className="p-5 border-b border-gray-100 flex items-center justify-between">
+                  <div>
+                    <h2 className="text-sm font-semibold text-gray-900">Campanhas Ativas</h2>
+                    <p className="text-xs text-gray-400 mt-0.5">Ordenado por investimento · Receita Kommo = valor_fechado cruzado por utm_campaign</p>
+                  </div>
+                  {metaKpis.receitaKommo > 0 && (
+                    <div className="text-right">
+                      <p className="text-xs text-gray-400">Receita total Kommo</p>
+                      <p className="text-sm font-bold text-emerald-600">{fmtR(metaKpis.receitaKommo)}</p>
+                    </div>
+                  )}
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
@@ -645,8 +701,7 @@ export default function Dashboard() {
                         <th className="text-left px-4 py-3 font-medium">Campanha</th>
                         <th className="text-right px-4 py-3 font-medium">Invest.</th>
                         <th className="text-right px-4 py-3 font-medium">Cliques</th>
-                        <th className="text-right px-4 py-3 font-medium">Compras</th>
-                        <th className="text-right px-4 py-3 font-medium">Receita</th>
+                        <th className="text-right px-4 py-3 font-medium">Receita Kommo</th>
                         <th className="text-right px-4 py-3 font-medium">ROAS</th>
                       </tr>
                     </thead>
@@ -656,11 +711,15 @@ export default function Dashboard() {
                           <td className="px-4 py-3 text-gray-700 font-medium max-w-[280px] truncate">{c.nome}</td>
                           <td className="px-4 py-3 text-right text-gray-600">{fmtR(c.spend)}</td>
                           <td className="px-4 py-3 text-right text-gray-500">{c.cliques.toLocaleString('pt-BR')}</td>
-                          <td className="px-4 py-3 text-right text-gray-500">{c.compras}</td>
-                          <td className="px-4 py-3 text-right text-gray-600">{c.receita > 0 ? fmtR(c.receita) : '—'}</td>
+                          <td className="px-4 py-3 text-right">
+                            {c.receitaKommo > 0
+                              ? <span className="font-semibold text-emerald-600">{fmtR(c.receitaKommo)}</span>
+                              : <span className="text-gray-300">—</span>
+                            }
+                          </td>
                           <td className="px-4 py-3 text-right">
                             <span className={`font-semibold ${c.roas >= 2 ? 'text-emerald-600' : c.roas >= 1 ? 'text-amber-500' : 'text-gray-400'}`}>
-                              {c.spend > 0 ? `${c.roas.toFixed(2)}x` : '—'}
+                              {c.roas > 0 ? `${c.roas.toFixed(2)}x` : '—'}
                             </span>
                           </td>
                         </tr>
